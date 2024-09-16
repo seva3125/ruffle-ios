@@ -1,4 +1,4 @@
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{OnceCell, RefCell};
 
 use block2::{Block, RcBlock};
 use objc2::rc::{Allocated, Retained};
@@ -9,8 +9,8 @@ use objc2_foundation::{
 };
 use objc2_ui_kit::{
     NSIndexPathUIKitAdditions, UIAction, UIButton, UILabel, UIMenu, UIMenuElementState,
-    UIMenuOptions, UINavigationItem, UIScrollViewDelegate, UISegmentedControl, UITableView,
-    UITableViewCell, UITableViewDataSource, UITableViewDelegate, UITextField, UIViewController,
+    UIMenuOptions, UIScrollViewDelegate, UISegmentedControl, UITableView, UITableViewCell,
+    UITableViewDataSource, UITableViewDelegate, UITextField, UIViewController,
 };
 use ruffle_core::{LoadBehavior, PlayerRuntime, StageAlign, StageScaleMode};
 use ruffle_frontend_utils::bundle::info::BundleInformation;
@@ -37,6 +37,7 @@ enum FormElement {
 }
 
 // TODO: Localization
+// Roughly matches PlayerOptions
 const FORM: &[&[FormElement]] = &[
     // Required
     &[FormElement::Name, FormElement::Source],
@@ -205,20 +206,9 @@ const FORM: &[&[FormElement]] = &[
     // Movie parameters are placed at the end
 ];
 
-// Roughly matches PlayerOptions
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Action {
-    #[default]
-    New,
-    Edit,
-}
-
 #[derive(Default)]
 pub struct Ivars {
-    navigation_item: OnceCell<Retained<UINavigationItem>>,
     table_view: OnceCell<Retained<UITableView>>,
-    action: Cell<Action>,
     info: RefCell<Option<BundleInformation>>,
 }
 
@@ -284,15 +274,6 @@ declare_class!(
     // Storyboard
     // See storyboard_connections.h
     unsafe impl EditController {
-        #[method(setNavigationItem:)]
-        fn _set_navigation_item(&self, item: &UINavigationItem) {
-            tracing::trace!("edit set navigation item");
-            self.ivars()
-                .navigation_item
-                .set(item.retain())
-                .expect("only set navigation item once");
-        }
-
         #[method(setTableView:)]
         fn _set_table_view(&self, table_view: &UITableView) {
             tracing::trace!("edit set table view");
@@ -341,8 +322,7 @@ declare_class!(
 );
 
 impl EditController {
-    pub fn configure(&self, action: Action, info: BundleInformation) {
-        self.ivars().action.set(action);
+    pub fn configure(&self, info: BundleInformation) {
         *self.ivars().info.borrow_mut() = Some(info);
     }
 
@@ -352,22 +332,6 @@ impl EditController {
 
     fn view_will_appear(&self) {
         tracing::info!("edit viewWillAppear:");
-
-        let action = self.ivars().action.get();
-
-        // Configure title bar
-        let title = if action == Action::New {
-            ns_string!("Add SWF")
-        } else {
-            ns_string!("Edit SWF")
-        };
-        unsafe {
-            self.ivars()
-                .navigation_item
-                .get()
-                .expect("navigation item set")
-                .setTitle(Some(title));
-        }
     }
 
     fn view_did_appear(&self) {

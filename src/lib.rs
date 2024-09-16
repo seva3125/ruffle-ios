@@ -5,7 +5,9 @@ use objc2::ClassType;
 use objc2_foundation::{MainThreadMarker, NSStringFromClass};
 use objc2_ui_kit::UIApplicationMain;
 
+mod add_controller;
 mod app_delegate;
+mod document;
 mod edit_controller;
 mod library_controller;
 mod player_controller;
@@ -46,6 +48,9 @@ pub fn launch(app_class: Option<&AnyClass>, delegate_class: Option<&AnyClass>) {
     let _ = player_controller::PlayerController::class();
     let _ = library_controller::LibraryController::class();
     let _ = edit_controller::EditController::class();
+    let _ = add_controller::AddController::class();
+    let _ = document::SWFDocument::class();
+    let _ = document::BundleDocument::class();
 
     let _ = MainThreadMarker::new().unwrap();
     unsafe {

@@ -2,6 +2,62 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Ruffle Bundle</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>document_ruf.icns</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>ruf</string>
+			</array>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.example.rs.ruffle.bundle</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSTypeIsPackage</key>
+			<true/>
+			<key>NSDocumentClass</key>
+			<string>BundleDocument</string>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Shockwave Flash Movie</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>document_swf.icns</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>swf</string>
+			</array>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.adobe.swf</string>
+			</array>
+			<key>CFBundleTypeMIMETypes</key>
+			<array>
+				<string>application/vnd.adobe.flash.movie</string>
+				<string>application/x-shockwave-flash</string>
+			</array>
+			<key>CFBundleTypeOSTypes</key>
+			<array>
+				<string>SWFL</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Default</string>
+			<key>LSTypeIsPackage</key>
+			<false/>
+			<key>NSDocumentClass</key>
+			<string>SWFDocument</string>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -21,5 +77,64 @@
 			</array>
 		</dict>
 	</dict>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.example.rs.ruffle.bundle</string>
+			<key>UTTypeDescription</key>
+			<string>Ruffle Bundle</string>
+			<key>UTTypeIconFiles</key>
+			<array>
+				<string>document_ruf.icns</string>
+			</array>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+				<string>public.directory</string>
+				<string>com.apple.package</string>
+				<string>public.archive</string>
+				<string>public.zip-archive</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>ruf</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.adobe.swf</string>
+			<key>UTTypeDescription</key>
+			<string>Shockwave Flash Movie</string>
+			<key>UTTypeIconFiles</key>
+			<array>
+				<string>document_swf.icns</string>
+			</array>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>swf</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/vnd.adobe.flash.movie</string>
+					<string>application/x-shockwave-flash</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>

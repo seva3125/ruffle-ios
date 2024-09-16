@@ -1,16 +1,19 @@
 use std::cell::{OnceCell, RefCell};
 
 use objc2::rc::{Allocated, Retained};
+use objc2::runtime::{AnyObject, ProtocolObject};
 use objc2::{declare_class, msg_send, msg_send_id, mutability, ClassType, DeclaredClass};
 use objc2_foundation::{
-    ns_string, NSBundle, NSCoder, NSIndexPath, NSInteger, NSObject, NSObjectProtocol, NSString,
+    ns_string, MainThreadMarker, NSArray, NSBundle, NSCoder, NSCopying, NSIndexPath, NSInteger,
+    NSObject, NSObjectProtocol, NSString, NSURL,
+};
+use objc2_ui_kit::{
+    NSDataAsset, NSIndexPathUIKitAdditions, UIBarButtonItem, UIDocumentPickerDelegate,
+    UIDocumentPickerViewController, UILabel, UITableView, UITableViewCell, UITableViewController,
+    UITableViewDataSource,
 };
 #[allow(deprecated)]
-use objc2_ui_kit::UIStoryboardSegue;
-use objc2_ui_kit::{
-    NSDataAsset, NSIndexPathUIKitAdditions, UIBarButtonItem, UILabel, UITableView, UITableViewCell,
-    UITableViewController, UITableViewDataSource,
-};
+use objc2_ui_kit::{UIDocumentPickerMode, UIStoryboardSegue};
 use ruffle_core::tag_utils::SwfMovie;
 use ruffle_core::PlayerBuilder;
 use ruffle_frontend_utils::backends::audio::CpalAudioBackend;
@@ -18,7 +21,8 @@ use ruffle_frontend_utils::bundle::info::BundleInformation;
 use ruffle_frontend_utils::player_options::PlayerOptions;
 use url::Url;
 
-use crate::edit_controller::{Action, EditController};
+use crate::document::{RUF_UTI, SWF_UTI};
+use crate::edit_controller::EditController;
 use crate::{PlayerController, PlayerView};
 
 #[derive(Default)]
@@ -135,6 +139,12 @@ declare_class!(
         fn _save_edit_item(&self, segue: &UIStoryboardSegue) {
             self.save_item(segue);
         }
+
+        #[method(showDocumentPicker:)]
+        #[allow(deprecated)]
+        fn _show_document_picker(&self, _sender: Option<&AnyObject>) {
+            self.show_document_picker();
+        }
     }
 
     #[allow(non_snake_case)]
@@ -169,6 +179,23 @@ declare_class!(
             _section: NSInteger,
         ) -> Option<Retained<NSString>> {
             Some(NSString::from_str("Library"))
+        }
+    }
+
+    #[allow(non_snake_case)]
+    unsafe impl UIDocumentPickerDelegate for LibraryController {
+        #[method(documentPickerWasCancelled:)]
+        fn documentPickerWasCancelled(&self, _controller: &UIDocumentPickerViewController) {
+            tracing::info!("cancelled document picker");
+        }
+
+        #[method(documentPicker:didPickDocumentAtURL:)]
+        fn documentPicker_didPickDocumentAtURL(
+            &self,
+            _controller: &UIDocumentPickerViewController,
+            url: &NSURL,
+        ) {
+            tracing::info!("completed document picker: {url:?}");
         }
     }
 );
@@ -247,18 +274,8 @@ impl LibraryController {
 
         // Identifiers are set up in the Storyboard
         let identifier = unsafe { segue.identifier() }.expect("segue to have identifier");
-        if &*identifier == ns_string!("new-item") {
-            assert!(destination.isKindOfClass(EditController::class()));
-            let edit_controller = unsafe { Retained::cast::<EditController>(destination) };
-
-            edit_controller.configure(
-                Action::New,
-                BundleInformation {
-                    name: "".into(),
-                    url: Url::parse("file://").unwrap(),
-                    player: PlayerOptions::default(),
-                },
-            );
+        if &*identifier == ns_string!("add-item") {
+            // No need to configure AddController
         } else if &*identifier == ns_string!("edit-item") {
             assert!(destination.isKindOfClass(EditController::class()));
             let edit_controller = unsafe { Retained::cast::<EditController>(destination) };
@@ -266,14 +283,11 @@ impl LibraryController {
             let cell = unsafe { &*(sender as *const NSObject as *const UITableViewCell) };
 
             // TODO
-            edit_controller.configure(
-                Action::Edit,
-                BundleInformation {
-                    name: "".into(),
-                    url: Url::parse("file://").unwrap(),
-                    player: PlayerOptions::default(),
-                },
-            );
+            edit_controller.configure(BundleInformation {
+                name: "".into(),
+                url: Url::parse("file://").unwrap(),
+                player: PlayerOptions::default(),
+            });
             dbg!(cell);
         } else if &*identifier == ns_string!("run-item") {
             assert!(destination.isKindOfClass(PlayerController::class()));
@@ -295,6 +309,24 @@ impl LibraryController {
         assert!(edit_controller.isKindOfClass(EditController::class()));
         let edit_controller = unsafe { Retained::cast::<EditController>(edit_controller) };
         dbg!(edit_controller); // TODO
+    }
+
+    #[allow(deprecated)]
+    fn show_document_picker(&self) {
+        tracing::info!("show document picker");
+        let mtm = MainThreadMarker::from(self);
+        let picker = unsafe {
+            UIDocumentPickerViewController::initWithDocumentTypes_inMode(
+                mtm.alloc(),
+                &NSArray::from_id_slice(&[ns_string!(RUF_UTI).copy(), ns_string!(SWF_UTI).copy()]),
+                UIDocumentPickerMode::Open,
+            )
+        };
+        unsafe { picker.setDelegate(Some(ProtocolObject::from_ref(self))) };
+        // TODO: Consider setting picker.directoryURL to NSDownloadsDirectory,
+        // as that's the likely place that people will have their SWFs.
+
+        unsafe { self.presentViewController_animated_completion(&picker, true, None) };
     }
 
     fn toggle_editing(&self, button: &UIBarButtonItem) {

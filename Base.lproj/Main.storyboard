@@ -56,7 +56,7 @@
                                     <rect key="frame" x="0.0" y="0.0" width="330.66666666666669" height="70"/>
                                     <autoresizingMask key="autoresizingMask"/>
                                     <subviews>
-                                        <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="ruf-document" translatesAutoresizingMaskIntoConstraints="NO" id="uW0-3v-CCS">
+                                        <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="document_ruf" translatesAutoresizingMaskIntoConstraints="NO" id="uW0-3v-CCS">
                                             <rect key="frame" x="8" y="8" width="54" height="54"/>
                                             <constraints>
                                                 <constraint firstAttribute="width" secondItem="uW0-3v-CCS" secondAttribute="height" multiplier="1:1" id="Rcj-AL-hjp"/>
@@ -103,14 +103,14 @@
                     </tableView>
                     <toolbarItems/>
                     <navigationItem key="navigationItem" id="wmY-4r-Pvd">
-                        <barButtonItem key="leftBarButtonItem" title="Edit" id="4wX-a8-qE5">
+                        <barButtonItem key="leftBarButtonItem" systemItem="edit" id="4wX-a8-qE5">
                             <connections>
-                                <action selector="toggleEditing:" destination="jhe-Vq-qF4" id="oMY-8J-2Ms"/>
+                                <action selector="toggleEditing:" destination="jhe-Vq-qF4" id="9pG-WT-esi"/>
                             </connections>
                         </barButtonItem>
-                        <barButtonItem key="rightBarButtonItem" title="Add SWF" id="hjl-Rh-wCo">
+                        <barButtonItem key="rightBarButtonItem" title="Add bookmark" image="bookmark" catalog="system" changesSelectionAsPrimaryAction="YES" id="h8u-cx-2eE">
                             <connections>
-                                <segue destination="sRq-mP-zfz" kind="presentation" identifier="new-item" id="plg-V3-nfQ"/>
+                                <action selector="showDocumentPicker:" destination="jhe-Vq-qF4" id="DNV-X3-jh9"/>
                             </connections>
                         </barButtonItem>
                     </navigationItem>
@@ -119,6 +119,12 @@
                     </connections>
                 </tableViewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="Ska-Zd-pi7" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+                <view contentMode="scaleToFill" id="GCg-hc-Y64">
+                    <rect key="frame" x="0.0" y="0.0" width="240" height="128"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                    <viewLayoutGuide key="safeArea" id="FIo-cw-dUP"/>
+                    <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                </view>
             </objects>
             <point key="canvasLocation" x="90.839694656488547" y="288.73239436619718"/>
         </scene>
@@ -133,11 +139,11 @@
                             <navigationBar contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="xjv-iU-cbf">
                                 <rect key="frame" x="0.0" y="0.0" width="393" height="44"/>
                                 <items>
-                                    <navigationItem title="Add/Edit SWF" id="NBs-uZ-Ytd">
+                                    <navigationItem title="Edit" id="NBs-uZ-Ytd">
                                         <barButtonItem key="leftBarButtonItem" systemItem="cancel" id="6Jf-Kr-ZXP">
                                             <color key="tintColor" systemColor="systemBlueColor"/>
                                             <connections>
-                                                <segue destination="6hO-0f-y9e" kind="unwind" unwindAction="cancelEditItem:" id="E1Y-6S-80q"/>
+                                                <segue destination="6hO-0f-y9e" kind="unwind" unwindAction="cancelEditItem:" id="Jvr-d0-i2r"/>
                                             </connections>
                                         </barButtonItem>
                                         <barButtonItem key="rightBarButtonItem" systemItem="save" id="TjK-up-Bmv">
@@ -349,7 +355,7 @@
                 <placeholder placeholderIdentifier="IBFirstResponder" id="Smm-Mc-RBS" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
                 <exit id="6hO-0f-y9e" userLabel="Exit" sceneMemberID="exit"/>
             </objects>
-            <point key="canvasLocation" x="1017.5572519083969" y="-440.14084507042259"/>
+            <point key="canvasLocation" x="1018" y="-451"/>
         </scene>
         <!--Player Controller-->
         <scene sceneID="I55-cc-16h">
@@ -371,13 +377,11 @@
             <point key="canvasLocation" x="1019" y="289"/>
         </scene>
     </scenes>
-    <inferredMetricsTieBreakers>
-        <segue reference="plg-V3-nfQ"/>
-    </inferredMetricsTieBreakers>
     <resources>
+        <image name="bookmark" catalog="system" width="110" height="128"/>
+        <image name="document_ruf" width="64" height="64"/>
         <image name="minus.circle.fill" catalog="system" width="128" height="123"/>
         <image name="plus.circle.fill" catalog="system" width="128" height="123"/>
-        <image name="ruf-document" width="64" height="64"/>
         <namedColor name="ruffle-blue">
             <color red="0.21568627450980393" green="0.32156862745098042" blue="0.5490196078431373" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>

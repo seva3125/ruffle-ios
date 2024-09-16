@@ -10,6 +10,9 @@
 		EC3BA0B72C93A6CA0072939D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EC3BA0B62C93A6CA0072939D /* Base */; };
 		EC3BA0BC2C93A6CB0072939D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EC3BA0BB2C93A6CB0072939D /* Assets.xcassets */; };
 		EC3BA0BF2C93A6CB0072939D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EC3BA0BE2C93A6CB0072939D /* Base */; };
+		EC42DF8D2C98FADB009998B2 /* document_swf.icns in Resources */ = {isa = PBXBuildFile; fileRef = EC42DF892C98FADB009998B2 /* document_swf.icns */; };
+		EC42DF8E2C98FADB009998B2 /* file-icons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EC42DF8A2C98FADB009998B2 /* file-icons.xcassets */; };
+		EC42DF902C98FE4A009998B2 /* document_ruf.icns in Resources */ = {isa = PBXBuildFile; fileRef = EC42DF8F2C98FE4A009998B2 /* document_ruf.icns */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -22,6 +25,10 @@
 		EC3BA0C92C93A87E0072939D /* src */ = {isa = PBXFileReference; lastKnownFileType = folder; path = src; sourceTree = "<group>"; };
 		EC3BA0CB2C93A8890072939D /* Cargo.lock */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Cargo.lock; sourceTree = "<group>"; };
 		EC3BA0CC2C93A8890072939D /* Cargo.toml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Cargo.toml; sourceTree = "<group>"; };
+		EC42DF882C98FADB009998B2 /* ATTRIBUTION.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = ATTRIBUTION.md; sourceTree = "<group>"; };
+		EC42DF892C98FADB009998B2 /* document_swf.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = document_swf.icns; sourceTree = "<group>"; };
+		EC42DF8A2C98FADB009998B2 /* file-icons.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "file-icons.xcassets"; sourceTree = "<group>"; };
+		EC42DF8F2C98FE4A009998B2 /* document_ruf.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = document_ruf.icns; sourceTree = "<group>"; };
 		ECEA01DB2C948F9A00C9D3D6 /* build-in-xcode.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "build-in-xcode.sh"; sourceTree = "<group>"; };
 		ECEA01DF2C9495C700C9D3D6 /* .cargo */ = {isa = PBXFileReference; lastKnownFileType = folder; path = .cargo; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -30,6 +37,7 @@
 		EC3BA0A02C93A6CA0072939D = {
 			isa = PBXGroup;
 			children = (
+				EC42DF8B2C98FADB009998B2 /* file-icons */,
 				EC3BA0C02C93A6CB0072939D /* Info.plist */,
 				EC3BA0C82C93A7400072939D /* ruffle-ios.entitlements */,
 				EC3BA0BD2C93A6CB0072939D /* LaunchScreen.storyboard */,
@@ -50,6 +58,17 @@
 				EC3BA0A92C93A6CA0072939D /* ruffle-ios.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		EC42DF8B2C98FADB009998B2 /* file-icons */ = {
+			isa = PBXGroup;
+			children = (
+				EC42DF882C98FADB009998B2 /* ATTRIBUTION.md */,
+				EC42DF8A2C98FADB009998B2 /* file-icons.xcassets */,
+				EC42DF8F2C98FE4A009998B2 /* document_ruf.icns */,
+				EC42DF892C98FADB009998B2 /* document_swf.icns */,
+			);
+			path = "file-icons";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -113,6 +132,9 @@
 				EC3BA0BC2C93A6CB0072939D /* Assets.xcassets in Resources */,
 				EC3BA0BF2C93A6CB0072939D /* Base in Resources */,
 				EC3BA0B72C93A6CA0072939D /* Base in Resources */,
+				EC42DF902C98FE4A009998B2 /* document_ruf.icns in Resources */,
+				EC42DF8E2C98FADB009998B2 /* file-icons.xcassets in Resources */,
+				EC42DF8D2C98FADB009998B2 /* document_swf.icns in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -321,6 +343,7 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Ruffle;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -334,11 +357,11 @@
 				MARKETING_VERSION = 0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "rs.ruffle.ruffle-ios";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				TARGETED_DEVICE_FAMILY = "1,2,3,6,7";
+				TARGETED_DEVICE_FAMILY = "1,2,6,7";
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Debug;
@@ -358,6 +381,7 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Ruffle;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -371,11 +395,11 @@
 				MARKETING_VERSION = 0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "rs.ruffle.ruffle-ios";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				TARGETED_DEVICE_FAMILY = "1,2,3,6,7";
+				TARGETED_DEVICE_FAMILY = "1,2,6,7";
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Release;

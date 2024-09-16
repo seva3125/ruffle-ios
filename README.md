@@ -54,6 +54,8 @@ Goals:
 - Be backwards and forwards compatible with new versions of the Ruffle app.
   - Upheld for [Ruffle Bundles](https://discord.com/channels/610531541889581066/1225519553916829736/1232031955751665777).
 
+Solution: Use `UIDocument` to handle `swf`/`ruf` files, and use "bookmarks" to store user settings and `.sol` data.
+
 So, we want to support several modes of launching:
 - Import bundle permanently.
 - Open a Ruffle Bundle without importing.
