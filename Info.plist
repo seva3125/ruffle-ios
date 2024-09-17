@@ -72,6 +72,7 @@
 				<string>public.data</string>
 				<string>public.content</string>
 				<string>public.directory</string>
+				<string>public.audiovisual-content</string>
 				<string>com.apple.package</string>
 				<string>public.archive</string>
 				<string>public.zip-archive</string>
@@ -100,6 +101,7 @@
 			<array>
 				<string>public.data</string>
 				<string>public.content</string>
+				<string>public.audiovisual-content</string>
 			</array>
 			<key>UTTypeTagSpecification</key>
 			<dict>
