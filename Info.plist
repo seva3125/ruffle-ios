@@ -6,7 +6,7 @@
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>Ruffle Bundle</string>
+			<string>Bundle</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>com.example.rs.ruffle.bundle</string>
@@ -30,7 +30,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
-			<string>Default</string>
+			<string>Owner</string>
 			<key>LSTypeIsPackage</key>
 			<false/>
 			<key>NSDocumentClass</key>
