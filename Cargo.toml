@@ -36,11 +36,7 @@ flv-rs = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master" }
 
 wgpu = "23.0.1"
 cpal = "0.15.3"
-fontdb = "0.21"
-dirs = "5.0"
 url = "2.5.2"
-webbrowser = "1.0.1"
-sys-locale = "0.3.1"
 tokio = { version = "1.40.0", features = ["rt-multi-thread", "macros"] }
 libc = "0.2.158"
 
