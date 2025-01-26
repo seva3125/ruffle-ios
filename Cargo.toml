@@ -15,8 +15,8 @@ objc2-foundation = "0.3"
 objc2-ui-kit = "0.3"
 objc2-metal = "0.3"
 objc2-quartz-core = "0.3"
-wgpu = "22.1.0"
-ruffle_core = { path = "../ruffle/core", features = [
+
+ruffle_core = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master", features = [
     "audio",
     "symphonia",
     "mp3",
@@ -25,14 +25,16 @@ ruffle_core = { path = "../ruffle/core", features = [
     "default_compatibility_rules",
     "default_font",
 ] }
-ruffle_render = { path = "../ruffle/render" }
-ruffle_render_wgpu = { path = "../ruffle/render/wgpu" }
-ruffle_video = { path = "../ruffle/video" }
-ruffle_video_software = { path = "../ruffle/video/software" }
-ruffle_frontend_utils = { path = "../ruffle/frontend-utils", features = [
+ruffle_render = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master" }
+ruffle_render_wgpu = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master" }
+ruffle_video = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master" }
+ruffle_video_software = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master" }
+ruffle_frontend_utils = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master", features = [
     "cpal",
 ] }
-flv-rs = { path = "../ruffle/flv" }
+flv-rs = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master" }
+
+wgpu = "23.0.1"
 cpal = "0.15.3"
 fontdb = "0.21"
 dirs = "5.0"
@@ -51,6 +53,16 @@ simple_logger = "5.0.0"
 [package.metadata.bundle.bin.run_swf]
 name = "Ruffle"
 identifier = "rs.ruffle.ios-dev"
+
+[patch."https://github.com/ruffle-rs/ruffle.git"]
+# Override Ruffle for local development.
+# ruffle_core = { path = "../ruffle/core" }
+# ruffle_render = { path = "../ruffle/render" }
+# ruffle_render_wgpu = { path = "../ruffle/render/wgpu" }
+# ruffle_video = { path = "../ruffle/video" }
+# ruffle_video_software = { path = "../ruffle/video/software" }
+# ruffle_frontend_utils = { path = "../ruffle/frontend-utils" }
+# flv-rs = { path = "../ruffle/flv" }
 
 [patch.crates-io]
 # visionOS support

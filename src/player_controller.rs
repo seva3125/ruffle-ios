@@ -53,9 +53,9 @@ impl fmt::Debug for Ivars {
 struct Navigator;
 
 impl NavigatorInterface for Navigator {
-    fn navigate_to_website(&self, _url: Url, _ask: bool) {}
+    fn navigate_to_website(&self, _url: Url) {}
 
-    fn open_file(&self, path: &Path) -> io::Result<File> {
+    async fn open_file(&self, path: &Path) -> io::Result<File> {
         File::open(path)
     }
 
@@ -200,7 +200,6 @@ impl PlayerController {
             future_spawner,
             None,
             true,
-            ruffle_core::backend::navigator::OpenURLMode::Allow,
             Default::default(),
             ruffle_core::backend::navigator::SocketMode::Allow,
             Rc::new(PlayingContent::DirectFile(movie_url)),
