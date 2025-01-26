@@ -1,29 +1,23 @@
 use objc2::rc::{Allocated, Retained};
-use objc2::{declare_class, msg_send, msg_send_id, mutability, ClassType, DeclaredClass};
+use objc2::{define_class, msg_send};
 use objc2_foundation::{NSBundle, NSCoder, NSObjectProtocol, NSString};
 use objc2_ui_kit::UIViewController;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Ivars {}
 
-declare_class!(
+define_class!(
+    #[unsafe(super(UIViewController))]
+    #[name = "AddController"]
+    #[ivars = Ivars]
     #[derive(Debug)]
     pub struct AddController;
 
-    unsafe impl ClassType for AddController {
-        type Super = UIViewController;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "AddController";
-    }
-
-    impl DeclaredClass for AddController {
-        type Ivars = Ivars;
-    }
-
     unsafe impl NSObjectProtocol for AddController {}
 
-    unsafe impl AddController {
-        #[method_id(initWithNibName:bundle:)]
+    /// UIViewController.
+    impl AddController {
+        #[unsafe(method_id(initWithNibName:bundle:))]
         fn _init_with_nib_name_bundle(
             this: Allocated<Self>,
             nib_name_or_nil: Option<&NSString>,
@@ -32,32 +26,32 @@ declare_class!(
             tracing::info!("add init");
             let this = this.set_ivars(Ivars::default());
             unsafe {
-                msg_send_id![super(this), initWithNibName: nib_name_or_nil, bundle: nib_bundle_or_nil]
+                msg_send![super(this), initWithNibName: nib_name_or_nil, bundle: nib_bundle_or_nil]
             }
         }
 
-        #[method_id(initWithCoder:)]
+        #[unsafe(method_id(initWithCoder:))]
         fn _init_with_coder(this: Allocated<Self>, coder: &NSCoder) -> Option<Retained<Self>> {
             tracing::info!("add init");
             let this = this.set_ivars(Ivars::default());
-            unsafe { msg_send_id![super(this), initWithCoder: coder] }
+            unsafe { msg_send![super(this), initWithCoder: coder] }
         }
 
-        #[method(viewDidLoad)]
+        #[unsafe(method(viewDidLoad))]
         fn _view_did_load(&self) {
             // Xcode template calls super at the beginning
             let _: () = unsafe { msg_send![super(self), viewDidLoad] };
             self.view_did_load();
         }
 
-        #[method(viewWillAppear:)]
+        #[unsafe(method(viewWillAppear:))]
         fn _view_will_appear(&self, animated: bool) {
             self.view_will_appear();
             // Docs say to call super
             let _: () = unsafe { msg_send![super(self), viewWillAppear: animated] };
         }
 
-        #[method(viewDidAppear:)]
+        #[unsafe(method(viewDidAppear:))]
         fn _view_did_appear(&self, animated: bool) {
             self.view_did_appear();
             // Docs say to call super
@@ -65,10 +59,10 @@ declare_class!(
         }
     }
 
-    // Storyboard
-    // See storyboard_connections.h
-    unsafe impl AddController {
-        // #[method(setTableView:)]
+    /// Storyboard
+    /// See storyboard_connections.h
+    impl AddController {
+        // #[unsafe(method(setTableView:))]
         // fn _set_table_view(&self, table_view: &UITableView) {
         //     tracing::trace!("edit set table view");
         //     self.ivars()

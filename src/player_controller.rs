@@ -3,14 +3,14 @@ use std::fs::File;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::{io, ptr};
+use std::{fmt, io, ptr};
 
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::AnyObject;
-use objc2::{declare_class, msg_send, msg_send_id, mutability, ClassType, DeclaredClass};
+use objc2::{define_class, msg_send, AllocAnyThread, DefinedClass as _};
+use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{
-    ns_string, CGPoint, CGRect, CGSize, MainThreadMarker, NSBundle, NSCoder, NSObjectProtocol,
-    NSString,
+    ns_string, MainThreadMarker, NSBundle, NSCoder, NSObjectProtocol, NSString,
 };
 use objc2_ui_kit::{NSDataAsset, UIViewController};
 use ruffle_core::config::Letterbox;
@@ -41,6 +41,14 @@ pub struct Ivars {
     executor: OnceCell<Arc<AsyncExecutor<EventSender>>>,
 }
 
+impl fmt::Debug for Ivars {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Ivars")
+            .field("movie_path", &self.movie_path)
+            .finish_non_exhaustive()
+    }
+}
+
 #[derive(Clone)]
 struct Navigator;
 
@@ -56,24 +64,18 @@ impl NavigatorInterface for Navigator {
     }
 }
 
-declare_class!(
+define_class!(
+    #[unsafe(super(UIViewController))]
+    #[name = "PlayerController"]
+    #[ivars = Ivars]
     #[derive(Debug)]
     pub struct PlayerController;
 
-    unsafe impl ClassType for PlayerController {
-        type Super = UIViewController;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "PlayerController";
-    }
-
-    impl DeclaredClass for PlayerController {
-        type Ivars = Ivars;
-    }
-
     unsafe impl NSObjectProtocol for PlayerController {}
 
-    unsafe impl PlayerController {
-        #[method_id(initWithNibName:bundle:)]
+    /// UIViewController.
+    impl PlayerController {
+        #[unsafe(method_id(initWithNibName:bundle:))]
         fn _init_with_nib_name_bundle(
             this: Allocated<Self>,
             nib_name_or_nil: Option<&NSString>,
@@ -81,46 +83,45 @@ declare_class!(
         ) -> Retained<Self> {
             tracing::info!("player controller init");
             let this = this.set_ivars(Ivars::default());
-            unsafe { msg_send_id![super(this), initWithNibName: nib_name_or_nil, bundle: nib_bundle_or_nil] }
+            unsafe {
+                msg_send![super(this), initWithNibName: nib_name_or_nil, bundle: nib_bundle_or_nil]
+            }
         }
 
-        #[method_id(initWithCoder:)]
-        fn _init_with_coder(
-            this: Allocated<Self>,
-            coder: &NSCoder,
-        ) -> Option<Retained<Self>> {
+        #[unsafe(method_id(initWithCoder:))]
+        fn _init_with_coder(this: Allocated<Self>, coder: &NSCoder) -> Option<Retained<Self>> {
             tracing::info!("player controller init");
             let this = this.set_ivars(Ivars::default());
-            unsafe { msg_send_id![super(this), initWithCoder: coder] }
+            unsafe { msg_send![super(this), initWithCoder: coder] }
         }
 
-        #[method(loadView)]
+        #[unsafe(method(loadView))]
         fn _load_view(&self) {
             self.load_view();
         }
 
-        #[method(viewDidLoad)]
+        #[unsafe(method(viewDidLoad))]
         fn _view_did_load(&self) {
             // Xcode template calls super at the beginning
             let _: () = unsafe { msg_send![super(self), viewDidLoad] };
             self.view_did_load();
         }
 
-        #[method(viewIsAppearing:)]
+        #[unsafe(method(viewIsAppearing:))]
         fn _view_is_appearing(&self, animated: bool) {
             self.view_is_appearing(animated);
             // Docs say to call super
             let _: () = unsafe { msg_send![super(self), viewIsAppearing: animated] };
         }
 
-        #[method(viewWillDisappear:)]
+        #[unsafe(method(viewWillDisappear:))]
         fn _view_will_disappear(&self, animated: bool) {
             self.view_will_disappear(animated);
             // Docs say to call super
             let _: () = unsafe { msg_send![super(self), viewWillDisappear: animated] };
         }
 
-        #[method(viewDidDisappear:)]
+        #[unsafe(method(viewDidDisappear:))]
         fn _view_did_disappear(&self, animated: bool) {
             self.view_did_disappear(animated);
             // Docs say to call super
@@ -128,27 +129,27 @@ declare_class!(
         }
     }
 
-    // UIResponder
+    /// UIResponder
     #[allow(non_snake_case)]
-    unsafe impl PlayerController {
-        #[method(canBecomeFirstResponder)]
+    impl PlayerController {
+        #[unsafe(method(canBecomeFirstResponder))]
         fn canBecomeFirstResponder(&self) -> bool {
             true
         }
 
-        #[method(becomeFirstResponder)]
+        #[unsafe(method(becomeFirstResponder))]
         fn becomeFirstResponder(&self) -> bool {
             tracing::info!("player controller becomeFirstResponder");
             unsafe { self.view().becomeFirstResponder() };
             true
         }
 
-        #[method(canResignFirstResponder)]
+        #[unsafe(method(canResignFirstResponder))]
         fn canResignFirstResponder(&self) -> bool {
             true
         }
 
-        #[method(resignFirstResponder)]
+        #[unsafe(method(resignFirstResponder))]
         fn resignFirstResponder(&self) -> bool {
             tracing::info!("controller resignFirstResponder");
             true
@@ -164,7 +165,7 @@ impl PlayerController {
             executor: OnceCell::new(),
         });
         let nil = ptr::null::<AnyObject>();
-        unsafe { msg_send_id![super(this), initWithNibName: nil, bundle: nil] }
+        unsafe { msg_send![super(this), initWithNibName: nil, bundle: nil] }
     }
 
     fn load_view(&self) {
@@ -218,8 +219,9 @@ impl PlayerController {
                 unsafe { NSDataAsset::initWithName(NSDataAsset::alloc(), ns_string!("logo-anim")) }
                     .expect("asset store should contain logo-anim");
             let data = unsafe { asset.data() };
-            SwfMovie::from_data(data.bytes(), "file://logo-anim.swf".into(), None)
-                .expect("loading movie")
+            // SAFETY: SwfMovie::from_data won't modify the NSData.
+            let bytes = unsafe { data.as_bytes_unchecked() };
+            SwfMovie::from_data(bytes, "file://logo-anim.swf".into(), None).expect("loading movie")
         };
         builder = builder.with_movie(movie);
 
@@ -272,12 +274,7 @@ impl PlayerController {
 
     fn view(&self) -> Retained<PlayerView> {
         let view = (**self).view().expect("controller loads view");
-        assert!(
-            view.isKindOfClass(PlayerView::class()),
-            "must have correct view type"
-        );
-        // SAFETY: Just checked that the view is of type `PlayerView`
-        unsafe { Retained::cast(view) }
+        view.downcast().expect("must have correct view type")
     }
 
     #[track_caller]

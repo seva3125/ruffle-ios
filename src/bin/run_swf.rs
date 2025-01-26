@@ -2,7 +2,7 @@
 use std::cell::OnceCell;
 
 use objc2::rc::{Allocated, Retained};
-use objc2::{declare_class, msg_send_id, mutability, ClassType, DeclaredClass};
+use objc2::{define_class, msg_send, ClassType, DefinedClass as _, MainThreadOnly};
 use objc2_foundation::{MainThreadMarker, NSObject, NSObjectProtocol};
 use objc2_ui_kit::{UIApplication, UIApplicationDelegate, UIScreen, UIWindow};
 
@@ -13,35 +13,29 @@ pub struct Ivars {
     window: OnceCell<Retained<UIWindow>>,
 }
 
-declare_class!(
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[name = "AppDelegate"]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = Ivars]
     #[derive(Debug)]
     pub struct AppDelegate;
 
-    unsafe impl ClassType for AppDelegate {
-        type Super = NSObject;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "AppDelegate";
-    }
-
-    impl DeclaredClass for AppDelegate {
-        type Ivars = Ivars;
-    }
-
     unsafe impl NSObjectProtocol for AppDelegate {}
 
-    unsafe impl AppDelegate {
-        // Called by UIKitApplicationMain
-        #[method_id(init)]
+    /// Called by UIKitApplicationMain.
+    impl AppDelegate {
+        #[unsafe(method_id(init))]
         fn init(this: Allocated<Self>) -> Retained<Self> {
             let this = this.set_ivars(Ivars {
                 window: OnceCell::new(),
             });
-            unsafe { msg_send_id![super(this), init] }
+            unsafe { msg_send![super(this), init] }
         }
     }
 
     unsafe impl UIApplicationDelegate for AppDelegate {
-        #[method(applicationDidFinishLaunching:)]
+        #[unsafe(method(applicationDidFinishLaunching:))]
         fn did_finish_launching(&self, _application: &UIApplication) {
             tracing::info!("applicationDidFinishLaunching:");
             self.setup();

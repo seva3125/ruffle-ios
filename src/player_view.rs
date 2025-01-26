@@ -1,13 +1,15 @@
 use std::cell::{Cell, OnceCell};
+use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::AnyClass;
-use objc2::{declare_class, msg_send, msg_send_id, mutability, sel, ClassType, DeclaredClass};
+use objc2::{define_class, msg_send, sel, ClassType, DefinedClass as _};
+use objc2_core_foundation::CGRect;
 use objc2_foundation::{
-    CGRect, MainThreadMarker, NSCoder, NSDate, NSObjectProtocol, NSRunLoop, NSRunLoopCommonModes,
-    NSSet, NSTimer,
+    MainThreadMarker, NSCoder, NSDate, NSObjectProtocol, NSRunLoop, NSRunLoopCommonModes, NSSet,
+    NSTimer,
 };
 use objc2_quartz_core::{CALayer, CALayerDelegate, CAMetalLayer};
 use objc2_ui_kit::{
@@ -26,141 +28,129 @@ pub struct Ivars {
     last_frame_time: Cell<Option<Instant>>,
 }
 
-declare_class!(
+impl fmt::Debug for Ivars {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Ivars")
+            .field("timer", &self.timer)
+            .field("last_frame_time", &self.last_frame_time)
+            .finish_non_exhaustive()
+    }
+}
+
+define_class!(
+    #[unsafe(super(UIView))]
+    #[name = "PlayerView"]
+    #[ivars = Ivars]
     #[derive(Debug)]
     pub struct PlayerView;
 
-    unsafe impl ClassType for PlayerView {
-        type Super = UIView;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "PlayerView";
-    }
-
-    impl DeclaredClass for PlayerView {
-        type Ivars = Ivars;
-    }
-
     unsafe impl NSObjectProtocol for PlayerView {}
 
-    unsafe impl PlayerView {
-        #[method_id(initWithFrame:)]
+    /// Initialization.
+    impl PlayerView {
+        #[unsafe(method_id(initWithFrame:))]
         fn _init_with_frame(this: Allocated<Self>, frame: CGRect) -> Retained<Self> {
             let this = this.set_ivars(Ivars::default());
-            let this: Retained<Self> = unsafe { msg_send_id![super(this), initWithFrame: frame] };
+            let this: Retained<Self> = unsafe { msg_send![super(this), initWithFrame: frame] };
             this.init();
             this
         }
 
-        #[method_id(initWithCoder:)]
+        #[unsafe(method_id(initWithCoder:))]
         fn _init_with_coder(this: Allocated<Self>, coder: &NSCoder) -> Retained<Self> {
             let this = this.set_ivars(Ivars::default());
-            let this: Retained<Self> = unsafe { msg_send_id![super(this), initWithCoder: coder] };
+            let this: Retained<Self> = unsafe { msg_send![super(this), initWithCoder: coder] };
             this.init();
             this
         }
 
-        #[method(layerClass)]
+        #[unsafe(method(layerClass))]
         fn layer_class() -> &AnyClass {
             CAMetalLayer::class()
         }
 
-        #[method(timerFire:)]
+        #[unsafe(method(timerFire:))]
         fn _timer_fire(&self, _timer: &NSTimer) {
             self.timer_fire();
         }
     }
 
-    // UIResponder
+    /// UIResponder
     #[allow(non_snake_case)]
-    unsafe impl PlayerView {
-        #[method(canBecomeFirstResponder)]
+    impl PlayerView {
+        #[unsafe(method(canBecomeFirstResponder))]
         fn canBecomeFirstResponder(&self) -> bool {
             true
         }
 
-        #[method(becomeFirstResponder)]
+        #[unsafe(method(becomeFirstResponder))]
         fn becomeFirstResponder(&self) -> bool {
             tracing::info!("becomeFirstResponder");
             true
         }
 
-        #[method(canResignFirstResponder)]
+        #[unsafe(method(canResignFirstResponder))]
         fn canResignFirstResponder(&self) -> bool {
             true
         }
 
-        #[method(resignFirstResponder)]
+        #[unsafe(method(resignFirstResponder))]
         fn resignFirstResponder(&self) -> bool {
             tracing::info!("resignFirstResponder");
             true
         }
 
-        #[method(touchesBegan:withEvent:)]
-        fn touchesBegan_withEvent(
-            &self,
-            touches: &NSSet<UITouch>,
-            event: Option<&UIEvent>,
-        ) {
+        #[unsafe(method(touchesBegan:withEvent:))]
+        fn touchesBegan_withEvent(&self, touches: &NSSet<UITouch>, event: Option<&UIEvent>) {
             tracing::trace!("touchesBegan:withEvent:");
             if !self.handle_touches(touches) {
                 // Forward to super
-                let _: () = unsafe { msg_send![super(self), touchesBegan: touches, withEvent: event] };
+                let _: () =
+                    unsafe { msg_send![super(self), touchesBegan: touches, withEvent: event] };
             }
         }
 
-        #[method(touchesMoved:withEvent:)]
-        fn touchesMoved_withEvent(
-            &self,
-            touches: &NSSet<UITouch>,
-            event: Option<&UIEvent>,
-        ) {
+        #[unsafe(method(touchesMoved:withEvent:))]
+        fn touchesMoved_withEvent(&self, touches: &NSSet<UITouch>, event: Option<&UIEvent>) {
             tracing::trace!("touchesMoved:withEvent:");
             if !self.handle_touches(touches) {
                 // Forward to super
-                let _: () = unsafe { msg_send![super(self), touchesMoved: touches, withEvent: event] };
+                let _: () =
+                    unsafe { msg_send![super(self), touchesMoved: touches, withEvent: event] };
             }
         }
 
-        #[method(touchesEnded:withEvent:)]
-        fn touchesEnded_withEvent(
-            &self,
-            touches: &NSSet<UITouch>,
-            event: Option<&UIEvent>,
-        ) {
+        #[unsafe(method(touchesEnded:withEvent:))]
+        fn touchesEnded_withEvent(&self, touches: &NSSet<UITouch>, event: Option<&UIEvent>) {
             tracing::trace!("touchesEnded:withEvent:");
             if !self.handle_touches(touches) {
                 // Forward to super
-                let _: () = unsafe { msg_send![super(self), touchesEnded: touches, withEvent: event] };
+                let _: () =
+                    unsafe { msg_send![super(self), touchesEnded: touches, withEvent: event] };
             }
         }
 
-        #[method(touchesCancelled:withEvent:)]
-        fn touchesCancelled_withEvent(
-            &self,
-            touches: &NSSet<UITouch>,
-            event: Option<&UIEvent>,
-        ) {
+        #[unsafe(method(touchesCancelled:withEvent:))]
+        fn touchesCancelled_withEvent(&self, touches: &NSSet<UITouch>, event: Option<&UIEvent>) {
             tracing::trace!("touchesCancelled:withEvent:");
             if !self.handle_touches(touches) {
                 // Forward to super
-                let _: () = unsafe { msg_send![super(self), touchesCancelled: touches, withEvent: event] };
+                let _: () =
+                    unsafe { msg_send![super(self), touchesCancelled: touches, withEvent: event] };
             }
         }
 
-        #[method(pressesBegan:withEvent:)]
-        fn pressesBegan_withEvent(
-            &self,
-            presses: &NSSet<UIPress>,
-            event: Option<&UIPressesEvent>,
-        ) {
+        #[unsafe(method(pressesBegan:withEvent:))]
+        fn pressesBegan_withEvent(&self, presses: &NSSet<UIPress>, event: Option<&UIPressesEvent>) {
             tracing::trace!("pressesBegan:withEvent:");
             if !self.handle_presses(presses) {
                 // Forward to super
-                let _: () = unsafe { msg_send![super(self), pressesBegan: presses, withEvent: event] };
+                let _: () =
+                    unsafe { msg_send![super(self), pressesBegan: presses, withEvent: event] };
             }
         }
 
-        #[method(pressesChanged:withEvent:)]
+        #[unsafe(method(pressesChanged:withEvent:))]
         fn pressesChanged_withEvent(
             &self,
             presses: &NSSet<UIPress>,
@@ -169,24 +159,22 @@ declare_class!(
             tracing::trace!("pressesChanged:withEvent:");
             if !self.handle_presses(presses) {
                 // Forward to super
-                let _: () = unsafe { msg_send![super(self), pressesChanged: presses, withEvent: event] };
+                let _: () =
+                    unsafe { msg_send![super(self), pressesChanged: presses, withEvent: event] };
             }
         }
 
-        #[method(pressesEnded:withEvent:)]
-        fn pressesEnded_withEvent(
-            &self,
-            presses: &NSSet<UIPress>,
-            event: Option<&UIPressesEvent>,
-        ) {
+        #[unsafe(method(pressesEnded:withEvent:))]
+        fn pressesEnded_withEvent(&self, presses: &NSSet<UIPress>, event: Option<&UIPressesEvent>) {
             tracing::trace!("pressesEnded:withEvent:");
             if !self.handle_presses(presses) {
                 // Forward to super
-                let _: () = unsafe { msg_send![super(self), pressesEnded: presses, withEvent: event] };
+                let _: () =
+                    unsafe { msg_send![super(self), pressesEnded: presses, withEvent: event] };
             }
         }
 
-        #[method(pressesCancelled:withEvent:)]
+        #[unsafe(method(pressesCancelled:withEvent:))]
         fn pressesCancelled_withEvent(
             &self,
             presses: &NSSet<UIPress>,
@@ -195,20 +183,21 @@ declare_class!(
             tracing::trace!("pressesCancelled:withEvent:");
             if !self.handle_presses(presses) {
                 // Forward to super
-                let _: () = unsafe { msg_send![super(self), pressesCancelled: presses, withEvent: event] };
+                let _: () =
+                    unsafe { msg_send![super(self), pressesCancelled: presses, withEvent: event] };
             }
         }
 
-        #[method(remoteControlReceivedWithEvent:)]
+        #[unsafe(method(remoteControlReceivedWithEvent:))]
         fn remoteControlReceivedWithEvent(&self, event: Option<&UIEvent>) {
             tracing::info!(subtype = ?event.map(|e| unsafe { e.subtype() }), "remoteControlReceivedWithEvent:");
         }
     }
 
-    // UIView
+    /// UIView overrides.
     #[allow(non_snake_case)]
-    unsafe impl PlayerView {
-        #[method(canBecomeFocused)]
+    impl PlayerView {
+        #[unsafe(method(canBecomeFocused))]
         fn canBecomeFocused(&self) -> bool {
             tracing::info!("canBecomeFocused");
             true
@@ -221,7 +210,7 @@ declare_class!(
     //
     // The view is automatically set as the layer's delegate.
     unsafe impl CALayerDelegate for PlayerView {
-        #[method(displayLayer:)]
+        #[unsafe(method(displayLayer:))]
         fn _display_layer(&self, _layer: &CALayer) {
             self.draw_rect();
         }
@@ -231,7 +220,7 @@ declare_class!(
         //
         // It may be called at other times though, so we check the configured
         // size in `resize` first to avoid unnecessary work.
-        #[method(layoutSublayersOfLayer:)]
+        #[unsafe(method(layoutSublayersOfLayer:))]
         fn _layout_sublayers_of_layer(&self, _layer: &CALayer) {
             self.resize();
         }
@@ -241,7 +230,7 @@ declare_class!(
 impl PlayerView {
     #[allow(non_snake_case)]
     pub fn initWithFrame(this: Allocated<Self>, frame_rect: CGRect) -> Retained<Self> {
-        unsafe { msg_send_id![this, initWithFrame: frame_rect] }
+        unsafe { msg_send![this, initWithFrame: frame_rect] }
     }
 
     fn init(&self) {
@@ -384,7 +373,7 @@ impl PlayerView {
 
         // Flash only supports one touch at a time, so we intentially don't set
         // `multipleTouchEnabled`, and don't have to do check all touches here.
-        let touch = unsafe { touches.anyObject().expect("touches must contain a touch") };
+        let touch = touches.anyObject().expect("touches must contain a touch");
 
         let point = touch.locationInView(Some(self));
         let scale_factor = self.contentScaleFactor();

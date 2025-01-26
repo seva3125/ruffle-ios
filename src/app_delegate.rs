@@ -1,5 +1,5 @@
 use objc2::rc::{Allocated, Retained};
-use objc2::{declare_class, msg_send_id, mutability, ClassType, DeclaredClass};
+use objc2::{define_class, msg_send, MainThreadOnly};
 use objc2_foundation::{ns_string, MainThreadMarker, NSObject, NSObjectProtocol, NSSet};
 use objc2_ui_kit::{
     UIApplication, UIApplicationDelegate, UISceneConfiguration, UISceneConnectionOptions,
@@ -9,38 +9,33 @@ use objc2_ui_kit::{
 #[derive(Debug)]
 pub struct Ivars {}
 
-declare_class!(
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[name = "AppDelegate"]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = Ivars]
     #[derive(Debug)]
     pub struct AppDelegate;
 
-    unsafe impl ClassType for AppDelegate {
-        type Super = NSObject;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "AppDelegate";
-    }
-
-    impl DeclaredClass for AppDelegate {
-        type Ivars = Ivars;
-    }
-
     unsafe impl NSObjectProtocol for AppDelegate {}
 
-    unsafe impl AppDelegate {
+    /// NSObject.
+    impl AppDelegate {
         // Called by UIKitApplicationMain
-        #[method_id(init)]
+        #[unsafe(method_id(init))]
         fn init(this: Allocated<Self>) -> Retained<Self> {
             let this = this.set_ivars(Ivars {});
-            unsafe { msg_send_id![super(this), init] }
+            unsafe { msg_send![super(this), init] }
         }
     }
 
     unsafe impl UIApplicationDelegate for AppDelegate {
-        #[method(applicationDidFinishLaunching:)]
+        #[unsafe(method(applicationDidFinishLaunching:))]
         fn did_finish_launching(&self, _application: &UIApplication) {
             tracing::info!("applicationDidFinishLaunching:");
         }
 
-        #[method_id(application:configurationForConnectingSceneSession:options:)]
+        #[unsafe(method_id(application:configurationForConnectingSceneSession:options:))]
         fn _application_configuration_for_connecting_scene_session_options(
             &self,
             _application: &UIApplication,
@@ -60,7 +55,7 @@ declare_class!(
             }
         }
 
-        #[method(application:didDiscardSceneSessions:)]
+        #[unsafe(method(application:didDiscardSceneSessions:))]
         fn _application_did_discard_scene_sessions(
             &self,
             _application: &UIApplication,

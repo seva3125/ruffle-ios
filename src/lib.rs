@@ -57,8 +57,8 @@ pub fn launch(app_class: Option<&AnyClass>, delegate_class: Option<&AnyClass>) {
         UIApplicationMain(
             *libc::_NSGetArgc(),
             NonNull::new(*libc::_NSGetArgv()).unwrap(),
-            app_class.map(|cls| NSStringFromClass(cls).as_ref()),
-            delegate_class.map(|cls| NSStringFromClass(cls).as_ref()),
+            app_class.map(|cls| NSStringFromClass(cls)).as_deref(),
+            delegate_class.map(|cls| NSStringFromClass(cls)).as_deref(),
         );
     }
 }

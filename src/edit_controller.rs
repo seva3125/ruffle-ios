@@ -2,7 +2,7 @@ use std::cell::{OnceCell, RefCell};
 
 use block2::{Block, RcBlock};
 use objc2::rc::{Allocated, Retained};
-use objc2::{declare_class, msg_send, msg_send_id, mutability, ClassType, DeclaredClass};
+use objc2::{define_class, msg_send, DefinedClass as _, Message};
 use objc2_foundation::{
     ns_string, MainThreadMarker, NSArray, NSBundle, NSCoder, NSIndexPath, NSInteger,
     NSObjectProtocol, NSString,
@@ -206,30 +206,24 @@ const FORM: &[&[FormElement]] = &[
     // Movie parameters are placed at the end
 ];
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Ivars {
     table_view: OnceCell<Retained<UITableView>>,
     info: RefCell<Option<BundleInformation>>,
 }
 
-declare_class!(
+define_class!(
+    #[unsafe(super(UIViewController))]
+    #[name = "EditController"]
+    #[ivars = Ivars]
     #[derive(Debug)]
     pub struct EditController;
 
-    unsafe impl ClassType for EditController {
-        type Super = UIViewController;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "EditController";
-    }
-
-    impl DeclaredClass for EditController {
-        type Ivars = Ivars;
-    }
-
     unsafe impl NSObjectProtocol for EditController {}
 
-    unsafe impl EditController {
-        #[method_id(initWithNibName:bundle:)]
+    /// UIViewController.
+    impl EditController {
+        #[unsafe(method_id(initWithNibName:bundle:))]
         fn _init_with_nib_name_bundle(
             this: Allocated<Self>,
             nib_name_or_nil: Option<&NSString>,
@@ -238,32 +232,32 @@ declare_class!(
             tracing::info!("edit init");
             let this = this.set_ivars(Ivars::default());
             unsafe {
-                msg_send_id![super(this), initWithNibName: nib_name_or_nil, bundle: nib_bundle_or_nil]
+                msg_send![super(this), initWithNibName: nib_name_or_nil, bundle: nib_bundle_or_nil]
             }
         }
 
-        #[method_id(initWithCoder:)]
+        #[unsafe(method_id(initWithCoder:))]
         fn _init_with_coder(this: Allocated<Self>, coder: &NSCoder) -> Option<Retained<Self>> {
             tracing::info!("edit init");
             let this = this.set_ivars(Ivars::default());
-            unsafe { msg_send_id![super(this), initWithCoder: coder] }
+            unsafe { msg_send![super(this), initWithCoder: coder] }
         }
 
-        #[method(viewDidLoad)]
+        #[unsafe(method(viewDidLoad))]
         fn _view_did_load(&self) {
             // Xcode template calls super at the beginning
             let _: () = unsafe { msg_send![super(self), viewDidLoad] };
             self.view_did_load();
         }
 
-        #[method(viewWillAppear:)]
+        #[unsafe(method(viewWillAppear:))]
         fn _view_will_appear(&self, animated: bool) {
             self.view_will_appear();
             // Docs say to call super
             let _: () = unsafe { msg_send![super(self), viewWillAppear: animated] };
         }
 
-        #[method(viewDidAppear:)]
+        #[unsafe(method(viewDidAppear:))]
         fn _view_did_appear(&self, animated: bool) {
             self.view_did_appear();
             // Docs say to call super
@@ -271,10 +265,10 @@ declare_class!(
         }
     }
 
-    // Storyboard
-    // See storyboard_connections.h
-    unsafe impl EditController {
-        #[method(setTableView:)]
+    /// Storyboard
+    /// See storyboard_connections.h
+    impl EditController {
+        #[unsafe(method(setTableView:))]
         fn _set_table_view(&self, table_view: &UITableView) {
             tracing::trace!("edit set table view");
             self.ivars()
@@ -286,7 +280,7 @@ declare_class!(
 
     #[allow(non_snake_case)]
     unsafe impl UITableViewDataSource for EditController {
-        #[method(tableView:numberOfRowsInSection:)]
+        #[unsafe(method(tableView:numberOfRowsInSection:))]
         fn tableView_numberOfRowsInSection(
             &self,
             _table_view: &UITableView,
@@ -301,12 +295,12 @@ declare_class!(
             }
         }
 
-        #[method(numberOfSectionsInTableView:)]
+        #[unsafe(method(numberOfSectionsInTableView:))]
         fn numberOfSectionsInTableView(&self, _table_view: &UITableView) -> NSInteger {
             FORM.len() as NSInteger + 1
         }
 
-        #[method_id(tableView:cellForRowAtIndexPath:)]
+        #[unsafe(method_id(tableView:cellForRowAtIndexPath:))]
         fn tableView_cellForRowAtIndexPath(
             &self,
             table_view: &UITableView,
@@ -368,9 +362,9 @@ impl EditController {
                     index_path,
                 );
                 let subviews = cell.contentView().subviews();
-                let ui_param = Retained::cast::<UITextField>(subviews.objectAtIndex(1));
+                let ui_param = subviews.objectAtIndex(1).downcast::<UITextField>().unwrap();
                 ui_param.setText(Some(&NSString::from_str(param)));
-                let ui_value = Retained::cast::<UITextField>(subviews.objectAtIndex(2));
+                let ui_value = subviews.objectAtIndex(2).downcast::<UITextField>().unwrap();
                 ui_value.setText(Some(&NSString::from_str(value)));
 
                 return cell;
@@ -382,9 +376,12 @@ impl EditController {
                         ns_string!("root-name"),
                         index_path,
                     );
-                    let input = Retained::cast::<UITextField>(
-                        cell.contentView().subviews().objectAtIndex(0),
-                    );
+                    let input = cell
+                        .contentView()
+                        .subviews()
+                        .objectAtIndex(0)
+                        .downcast::<UITextField>()
+                        .unwrap();
                     input.setText(Some(&NSString::from_str(&info.name)));
                     cell
                 }
@@ -394,9 +391,12 @@ impl EditController {
                         ns_string!("root-name"),
                         index_path,
                     );
-                    let input = Retained::cast::<UITextField>(
-                        cell.contentView().subviews().objectAtIndex(0),
-                    );
+                    let input = cell
+                        .contentView()
+                        .subviews()
+                        .objectAtIndex(0)
+                        .downcast::<UITextField>()
+                        .unwrap();
                     input.setText(Some(&NSString::from_str(&info.url.to_string())));
                     cell
                 }
@@ -407,10 +407,10 @@ impl EditController {
                     );
                     let subviews = cell.contentView().subviews();
 
-                    let ui_label = Retained::cast::<UILabel>(subviews.objectAtIndex(0));
+                    let ui_label = subviews.objectAtIndex(0).downcast::<UILabel>().unwrap();
                     ui_label.setText(Some(&NSString::from_str(label)));
 
-                    let input = Retained::cast::<UITextField>(subviews.objectAtIndex(1));
+                    let input = subviews.objectAtIndex(1).downcast::<UITextField>().unwrap();
                     input.setText(text(&options).map(|s| NSString::from_str(&s)).as_deref());
                     cell
                 }
@@ -425,12 +425,12 @@ impl EditController {
                     );
                     let subviews = cell.contentView().subviews();
 
-                    let ui_label = Retained::cast::<UILabel>(subviews.objectAtIndex(0));
+                    let ui_label = subviews.objectAtIndex(0).downcast::<UILabel>().unwrap();
                     ui_label.setText(Some(&NSString::from_str(label)));
 
                     // Set menu
                     let enabled_variant = enabled_variant(&options);
-                    let button = Retained::cast::<UIButton>(subviews.objectAtIndex(1));
+                    let button = subviews.objectAtIndex(1).downcast::<UIButton>().unwrap();
                     // We have to use UIAction here, UICommand seems to be broken
                     let block = RcBlock::new(|_| {});
                     let block_ptr: *const Block<_> = &*block;
@@ -480,10 +480,13 @@ impl EditController {
                     );
                     let subviews = cell.contentView().subviews();
 
-                    let ui_label = Retained::cast::<UILabel>(subviews.objectAtIndex(0));
+                    let ui_label = subviews.objectAtIndex(0).downcast::<UILabel>().unwrap();
                     ui_label.setText(Some(&NSString::from_str(label)));
 
-                    let control = Retained::cast::<UISegmentedControl>(subviews.objectAtIndex(1));
+                    let control = subviews
+                        .objectAtIndex(1)
+                        .downcast::<UISegmentedControl>()
+                        .unwrap();
                     control.setSelectedSegmentIndex(match value(&options) {
                         None => 0,
                         Some(false) => 1,

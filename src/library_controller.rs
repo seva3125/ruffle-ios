@@ -2,10 +2,10 @@ use std::cell::{OnceCell, RefCell};
 
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::{AnyObject, ProtocolObject};
-use objc2::{declare_class, msg_send, msg_send_id, mutability, ClassType, DeclaredClass};
+use objc2::{define_class, msg_send, AllocAnyThread, ClassType, DefinedClass as _, Message};
 use objc2_foundation::{
-    ns_string, MainThreadMarker, NSArray, NSBundle, NSCoder, NSCopying, NSIndexPath, NSInteger,
-    NSObject, NSObjectProtocol, NSString, NSURL,
+    ns_string, MainThreadMarker, NSArray, NSBundle, NSCoder, NSIndexPath, NSInteger, NSObject,
+    NSObjectProtocol, NSString, NSURL,
 };
 use objc2_ui_kit::{
     NSDataAsset, NSIndexPathUIKitAdditions, UIBarButtonItem, UIDocumentPickerDelegate,
@@ -25,30 +25,24 @@ use crate::document::{RUF_UTI, SWF_UTI};
 use crate::edit_controller::EditController;
 use crate::{PlayerController, PlayerView};
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Ivars {
     logo_view: OnceCell<Retained<PlayerView>>,
     bundles: RefCell<Vec<BundleInformation>>,
 }
 
-declare_class!(
+define_class!(
+    #[unsafe(super(UITableViewController))]
+    #[name = "LibraryController"]
+    #[ivars = Ivars]
     #[derive(Debug)]
     pub struct LibraryController;
 
-    unsafe impl ClassType for LibraryController {
-        type Super = UITableViewController;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "LibraryController";
-    }
-
-    impl DeclaredClass for LibraryController {
-        type Ivars = Ivars;
-    }
-
     unsafe impl NSObjectProtocol for LibraryController {}
 
-    unsafe impl LibraryController {
-        #[method_id(initWithNibName:bundle:)]
+    /// UIViewController.
+    impl LibraryController {
+        #[unsafe(method_id(initWithNibName:bundle:))]
         fn _init_with_nib_name_bundle(
             this: Allocated<Self>,
             nib_name_or_nil: Option<&NSString>,
@@ -57,56 +51,56 @@ declare_class!(
             tracing::info!("library init");
             let this = this.set_ivars(Ivars::default());
             unsafe {
-                msg_send_id![super(this), initWithNibName: nib_name_or_nil, bundle: nib_bundle_or_nil]
+                msg_send![super(this), initWithNibName: nib_name_or_nil, bundle: nib_bundle_or_nil]
             }
         }
 
-        #[method_id(initWithCoder:)]
+        #[unsafe(method_id(initWithCoder:))]
         fn _init_with_coder(this: Allocated<Self>, coder: &NSCoder) -> Option<Retained<Self>> {
             tracing::info!("library init");
             let this = this.set_ivars(Ivars::default());
-            unsafe { msg_send_id![super(this), initWithCoder: coder] }
+            unsafe { msg_send![super(this), initWithCoder: coder] }
         }
 
-        #[method(viewDidLoad)]
+        #[unsafe(method(viewDidLoad))]
         fn _view_did_load(&self) {
             // Xcode template calls super at the beginning
             let _: () = unsafe { msg_send![super(self), viewDidLoad] };
             self.view_did_load();
         }
 
-        #[method(viewIsAppearing:)]
+        #[unsafe(method(viewIsAppearing:))]
         fn _view_is_appearing(&self, animated: bool) {
             self.view_is_appearing(animated);
             // Docs say to call super
             let _: () = unsafe { msg_send![super(self), viewIsAppearing: animated] };
         }
 
-        #[method(viewWillDisappear:)]
+        #[unsafe(method(viewWillDisappear:))]
         fn _view_will_disappear(&self, animated: bool) {
             self.view_will_disappear(animated);
             // Docs say to call super
             let _: () = unsafe { msg_send![super(self), viewWillDisappear: animated] };
         }
 
-        #[method(viewDidDisappear:)]
+        #[unsafe(method(viewDidDisappear:))]
         fn _view_did_disappear(&self, animated: bool) {
             self.view_did_disappear(animated);
             // Docs say to call super
             let _: () = unsafe { msg_send![super(self), viewDidDisappear: animated] };
         }
 
-        #[method(prepareForSegue:sender:)]
+        #[unsafe(method(prepareForSegue:sender:))]
         #[allow(deprecated)]
         fn _prepare_for_segue(&self, segue: &UIStoryboardSegue, sender: Option<&NSObject>) {
             self.prepare_for_segue(segue, sender.expect("has sender"));
         }
     }
 
-    // Storyboard
-    // See storyboard_connections.h
-    unsafe impl LibraryController {
-        #[method(setLogoView:)]
+    /// Storyboard
+    /// See storyboard_connections.h
+    impl LibraryController {
+        #[unsafe(method(setLogoView:))]
         fn _set_logo_view(&self, view: Option<&PlayerView>) {
             tracing::trace!("library set logo view");
             let view = view.expect("logo view not null");
@@ -120,7 +114,7 @@ declare_class!(
                 .expect("only set logo view once");
         }
 
-        #[method(toggleEditing:)]
+        #[unsafe(method(toggleEditing:))]
         fn _toggle_editing(&self, button: &UIBarButtonItem) {
             tracing::trace!("library toggle editing");
             assert!(
@@ -130,17 +124,17 @@ declare_class!(
             self.toggle_editing(button);
         }
 
-        #[method(cancelEditItem:)]
+        #[unsafe(method(cancelEditItem:))]
         #[allow(deprecated)]
         fn _cancel_edit_item(&self, _segue: &UIStoryboardSegue) {}
 
-        #[method(saveEditItem:)]
+        #[unsafe(method(saveEditItem:))]
         #[allow(deprecated)]
         fn _save_edit_item(&self, segue: &UIStoryboardSegue) {
             self.save_item(segue);
         }
 
-        #[method(showDocumentPicker:)]
+        #[unsafe(method(showDocumentPicker:))]
         #[allow(deprecated)]
         fn _show_document_picker(&self, _sender: Option<&AnyObject>) {
             self.show_document_picker();
@@ -149,7 +143,7 @@ declare_class!(
 
     #[allow(non_snake_case)]
     unsafe impl UITableViewDataSource for LibraryController {
-        #[method(tableView:numberOfRowsInSection:)]
+        #[unsafe(method(tableView:numberOfRowsInSection:))]
         fn tableView_numberOfRowsInSection(
             &self,
             _table_view: &UITableView,
@@ -158,12 +152,12 @@ declare_class!(
             self.ivars().bundles.borrow().len() as NSInteger
         }
 
-        #[method(numberOfSectionsInTableView:)]
+        #[unsafe(method(numberOfSectionsInTableView:))]
         fn numberOfSectionsInTableView(&self, _table_view: &UITableView) -> NSInteger {
             1
         }
 
-        #[method_id(tableView:cellForRowAtIndexPath:)]
+        #[unsafe(method_id(tableView:cellForRowAtIndexPath:))]
         fn tableView_cellForRowAtIndexPath(
             &self,
             table_view: &UITableView,
@@ -172,7 +166,7 @@ declare_class!(
             self.cell_at(table_view, index_path)
         }
 
-        #[method_id(tableView:titleForHeaderInSection:)]
+        #[unsafe(method_id(tableView:titleForHeaderInSection:))]
         fn tableView_titleForHeaderInSection(
             &self,
             _table_view: &UITableView,
@@ -184,12 +178,12 @@ declare_class!(
 
     #[allow(non_snake_case)]
     unsafe impl UIDocumentPickerDelegate for LibraryController {
-        #[method(documentPickerWasCancelled:)]
+        #[unsafe(method(documentPickerWasCancelled:))]
         fn documentPickerWasCancelled(&self, _controller: &UIDocumentPickerViewController) {
             tracing::info!("cancelled document picker");
         }
 
-        #[method(documentPicker:didPickDocumentAtURL:)]
+        #[unsafe(method(documentPicker:didPickDocumentAtURL:))]
         fn documentPicker_didPickDocumentAtURL(
             &self,
             _controller: &UIDocumentPickerViewController,
@@ -229,8 +223,10 @@ impl LibraryController {
             unsafe { NSDataAsset::initWithName(NSDataAsset::alloc(), ns_string!("logo-anim")) }
                 .expect("asset store should contain logo-anim");
         let data = unsafe { asset.data() };
-        let movie = SwfMovie::from_data(data.bytes(), "file://logo-anim.swf".into(), None)
-            .expect("loading movie");
+        // SAFETY: SwfMovie::from_data won't modify the NSData.
+        let bytes = unsafe { data.as_bytes_unchecked() };
+        let movie =
+            SwfMovie::from_data(bytes, "file://logo-anim.swf".into(), None).expect("loading movie");
 
         let renderer = view.create_renderer();
 
@@ -318,7 +314,7 @@ impl LibraryController {
         let picker = unsafe {
             UIDocumentPickerViewController::initWithDocumentTypes_inMode(
                 mtm.alloc(),
-                &NSArray::from_id_slice(&[ns_string!(RUF_UTI).copy(), ns_string!(SWF_UTI).copy()]),
+                &NSArray::from_slice(&[ns_string!(RUF_UTI), ns_string!(SWF_UTI)]),
                 UIDocumentPickerMode::Open,
             )
         };
@@ -356,10 +352,10 @@ impl LibraryController {
             );
             let subviews = cell.contentView().subviews();
 
-            let title = Retained::cast::<UILabel>(subviews.objectAtIndex(1));
+            let title = subviews.objectAtIndex(1).downcast::<UILabel>().unwrap();
             title.setText(Some(&NSString::from_str(&bundle.name)));
 
-            let subtitle = Retained::cast::<UILabel>(subviews.objectAtIndex(2));
+            let subtitle = subviews.objectAtIndex(2).downcast::<UILabel>().unwrap();
             subtitle.setText(Some(&NSString::from_str(&bundle.url.to_string())));
 
             cell
