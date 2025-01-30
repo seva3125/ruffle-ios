@@ -48,29 +48,20 @@ Settings are stored per Ruffle Bundle.
 
 We do not store Ruffle Bundles / SWFs, the user is responsible for doing that themselves in the Files app. We only store "bookmarks" to these, to allow easily re-opening from within the app, and to store user data.
 
-CoreData model fields:
-- `link`: Store reference/bookmark to a Ruffle Bundle or SWF.
-  - Either a bookmarked link to the actual bundle/SWF stored on user's device.
-  - Or http/https link to externally stored bundle/SWF.
-- `user_settings`: Any user-specified settings (overrides the Ruffle Bundle's preconfigured settings).
-- `movie_data`: Data the SWF itself may have stored (the `.sol` key-value store).
-  - Key/value pairs
-- Perhaps: `cached_name`, to allow easily finding relevant settings for an SWF in case the user deleted.
-
 This can be synced to iCloud, though the user may have to re-select the referenced Ruffle Bundle (in case it was stored locally, and not in iCloud).
 
 Goal: Be backwards and forwards compatible with new versions of the Ruffle app.
 - Upheld for [Ruffle Bundles](https://discord.com/channels/610531541889581066/1225519553916829736/1232031955751665777).
 - Should also be fine for user settings.
 
-Rule for syncing is "newest wins". This _should_ be fine if e.g. the user has modified their settings on two different devices, though might require different logic for application data.
-
-Note that we _could_ have used a Core Data model, but that's difficult and won't really help us when our settings is mostly defined by the Ruffle Bundle.
+See [src/storage.rs] for implementation.
 
 
 ## Terminology
 
 What do we call an SWF / a Ruffle Bundle? "Game"? "Movie"? "SWF"? "Flash Animation"?
+
+Internally: "movie".
 
 
 ## Plan

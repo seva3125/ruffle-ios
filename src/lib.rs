@@ -13,6 +13,7 @@ mod library_controller;
 mod player_controller;
 mod player_view;
 mod scene_delegate;
+mod storage;
 
 pub use self::app_delegate::AppDelegate;
 pub use self::player_controller::PlayerController;
@@ -51,6 +52,10 @@ pub fn launch(app_class: Option<&AnyClass>, delegate_class: Option<&AnyClass>) {
     let _ = add_controller::AddController::class();
     let _ = document::SWFDocument::class();
     let _ = document::BundleDocument::class();
+
+    // This is loaded by CoreData
+    let _ = storage::Movie::class();
+    let _ = storage::MovieData::class();
 
     let _ = MainThreadMarker::new().unwrap();
     unsafe {

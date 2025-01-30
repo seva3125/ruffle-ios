@@ -1,13 +1,19 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23605" systemVersion="23H222" minimumToolsVersion="Xcode 11.0" sourceLanguage="Objective-C" userDefinedModelVersionIdentifier="">
-    <entity name="Bundle" representedClassName="Bundle" syncable="YES">
+    <entity name="Movie" representedClassName="Movie" syncable="YES">
         <attribute name="link" attributeType="URI"/>
-        <attribute name="user_settings" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
-        <relationship name="movie_data" toMany="YES" deletionRule="Cascade" destinationEntity="BundleAppData" inverseName="bundle" inverseEntity="BundleAppData"/>
+        <attribute name="userSettings" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
+        <relationship name="movieData" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="MovieData" inverseName="movie" inverseEntity="MovieData"/>
     </entity>
-    <entity name="BundleAppData" representedClassName="BundleAppData" syncable="YES">
+    <entity name="MovieData" representedClassName="MovieData" syncable="YES">
         <attribute name="key" attributeType="String"/>
         <attribute name="value" attributeType="Binary"/>
-        <relationship name="bundle" maxCount="1" deletionRule="Deny" destinationEntity="Bundle" inverseName="movie_data" inverseEntity="Bundle"/>
+        <relationship name="movie" maxCount="1" deletionRule="Nullify" destinationEntity="Movie" inverseName="movieData" inverseEntity="Movie"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="movie"/>
+                <constraint value="key"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
     </entity>
 </model>
