@@ -25,7 +25,7 @@ define_class!(
     impl SWFDocument {
         #[unsafe(method_id(initWithFileURL:))]
         fn _init_with_file_url(this: Allocated<Self>, url: &NSURL) -> Retained<Self> {
-            tracing::info!("document init");
+            tracing::info!("SWFDocument init");
             let this = this.set_ivars(Ivars::default());
             unsafe { msg_send![super(this), initWithFileURL: url] }
         }
@@ -45,7 +45,7 @@ define_class!(
     impl BundleDocument {
         #[unsafe(method_id(initWithFileURL:))]
         fn _init_with_file_url(this: Allocated<Self>, url: &NSURL) -> Retained<Self> {
-            tracing::info!("document init");
+            tracing::info!("BundleDocument init");
             let this = this.set_ivars(Ivars::default());
             unsafe { msg_send![super(this), initWithFileURL: url] }
         }

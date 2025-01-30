@@ -13,6 +13,7 @@
 		EC42DF8D2C98FADB009998B2 /* document_swf.icns in Resources */ = {isa = PBXBuildFile; fileRef = EC42DF892C98FADB009998B2 /* document_swf.icns */; };
 		EC42DF8E2C98FADB009998B2 /* file-icons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EC42DF8A2C98FADB009998B2 /* file-icons.xcassets */; };
 		EC42DF902C98FE4A009998B2 /* document_ruf.icns in Resources */ = {isa = PBXBuildFile; fileRef = EC42DF8F2C98FE4A009998B2 /* document_ruf.icns */; };
+		EC5247022D4B11C30040F6D0 /* Ruffle.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = EC5246FC2D4B03C00040F6D0 /* Ruffle.xcdatamodeld */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +30,7 @@
 		EC42DF892C98FADB009998B2 /* document_swf.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = document_swf.icns; sourceTree = "<group>"; };
 		EC42DF8A2C98FADB009998B2 /* file-icons.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "file-icons.xcassets"; sourceTree = "<group>"; };
 		EC42DF8F2C98FE4A009998B2 /* document_ruf.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = document_ruf.icns; sourceTree = "<group>"; };
+		EC5246FD2D4B03C00040F6D0 /* Ruffle.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = Ruffle.xcdatamodel; sourceTree = "<group>"; };
 		ECEA01DB2C948F9A00C9D3D6 /* build-in-xcode.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "build-in-xcode.sh"; sourceTree = "<group>"; };
 		ECEA01DF2C9495C700C9D3D6 /* .cargo */ = {isa = PBXFileReference; lastKnownFileType = folder; path = .cargo; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -43,6 +45,7 @@
 				EC3BA0BD2C93A6CB0072939D /* LaunchScreen.storyboard */,
 				EC3BA0B52C93A6CA0072939D /* Main.storyboard */,
 				EC3BA0BB2C93A6CB0072939D /* Assets.xcassets */,
+				EC5246FC2D4B03C00040F6D0 /* Ruffle.xcdatamodeld */,
 				ECEA01DB2C948F9A00C9D3D6 /* build-in-xcode.sh */,
 				EC3BA0CC2C93A8890072939D /* Cargo.toml */,
 				EC3BA0CB2C93A8890072939D /* Cargo.lock */,
@@ -78,7 +81,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = EC3BA0C52C93A6CB0072939D /* Build configuration list for PBXNativeTarget "ruffle-ios" */;
 			buildPhases = (
-				EC3BA0A52C93A6CA0072939D /* Sources */,
+				EC5247012D4B11BE0040F6D0 /* Sources */,
 				ECEA01DC2C948FAD00C9D3D6 /* ShellScript */,
 				ECEA01DE2C94929900C9D3D6 /* ShellScript */,
 				EC3BA0A72C93A6CA0072939D /* Resources */,
@@ -185,10 +188,11 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		EC3BA0A52C93A6CA0072939D /* Sources */ = {
+		EC5247012D4B11BE0040F6D0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EC5247022D4B11C30040F6D0 /* Ruffle.xcdatamodeld in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -426,6 +430,19 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCVersionGroup section */
+		EC5246FC2D4B03C00040F6D0 /* Ruffle.xcdatamodeld */ = {
+			isa = XCVersionGroup;
+			children = (
+				EC5246FD2D4B03C00040F6D0 /* Ruffle.xcdatamodel */,
+			);
+			currentVersion = EC5246FD2D4B03C00040F6D0 /* Ruffle.xcdatamodel */;
+			path = Ruffle.xcdatamodeld;
+			sourceTree = "<group>";
+			versionGroupType = wrapper.xcdatamodel;
+		};
+/* End XCVersionGroup section */
 	};
 	rootObject = EC3BA0A12C93A6CA0072939D /* Project object */;
 }
