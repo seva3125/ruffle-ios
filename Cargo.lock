@@ -2394,7 +2394,10 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f860f8e841f6d32f754836f51e6bc7777cd7e7053cf18528233f6811d3eceb4"
 dependencies = [
+ "bitflags 2.8.0",
+ "block2",
  "objc2",
+ "objc2-cloud-kit",
  "objc2-foundation",
 ]
 
@@ -3005,6 +3008,7 @@ dependencies = [
  "libc",
  "log",
  "objc2",
+ "objc2-core-data",
  "objc2-core-foundation",
  "objc2-foundation",
  "objc2-metal",

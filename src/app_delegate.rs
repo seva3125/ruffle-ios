@@ -6,6 +6,8 @@ use objc2_ui_kit::{
     UISceneSession,
 };
 
+use crate::storage;
+
 #[derive(Debug)]
 pub struct Ivars {}
 
@@ -33,6 +35,7 @@ define_class!(
         #[unsafe(method(applicationDidFinishLaunching:))]
         fn did_finish_launching(&self, _application: &UIApplication) {
             tracing::info!("applicationDidFinishLaunching:");
+            storage::setup();
         }
 
         #[unsafe(method_id(application:configurationForConnectingSceneSession:options:))]

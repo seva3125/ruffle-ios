@@ -11,16 +11,24 @@
 //!
 //! TODO:
 //! - Figure out sync failures.
+//! - Better error handling.
 //!
 //! To generate data model interface to compare with, modify .xcdatamodeld and
 //! set codegen = Class definition on every entity. Then run:
 //! /Applications/Xcode.app/Contents/Developer/usr/bin/momc --action generate ./Ruffle.xcdatamodeld storage
 #![allow(non_snake_case)]
 
+use std::ptr::NonNull;
+use std::sync::OnceLock;
+
+use block2::RcBlock;
 use objc2::rc::{Allocated, Retained};
 use objc2::{define_class, extern_methods, AllocAnyThread};
-use objc2_core_data::{NSFetchRequest, NSManagedObject, NSManagedObjectContext};
-use objc2_foundation::{ns_string, NSData, NSSet, NSString, NSURL};
+use objc2_core_data::{
+    NSFetchRequest, NSManagedObject, NSManagedObjectContext, NSPersistentContainer,
+    NSPersistentStoreDescription,
+};
+use objc2_foundation::{ns_string, NSData, NSError, NSSet, NSString, NSURL};
 use ruffle_core::backend::storage::StorageBackend;
 
 define_class!(
@@ -146,7 +154,6 @@ impl MovieData {
 #[derive(Debug, Clone)]
 pub struct MovieStorageBackend {
     movie: Retained<Movie>,
-    context: Retained<NSManagedObjectContext>,
 }
 
 impl MovieStorageBackend {
@@ -173,12 +180,21 @@ impl StorageBackend for MovieStorageBackend {
         if let Some(existing) = self.lookup_data(&key) {
             existing.setValue(&value);
         } else {
-            let data = MovieData::initWithContext(MovieData::alloc(), &self.context);
+            let data =
+                MovieData::initWithContext(MovieData::alloc(), unsafe { &get().viewContext() });
             data.setKey(&key);
             data.setValue(&value);
             self.movie.addMovieDataObject(&data);
         }
-        true
+
+        // Flush changes to disk.
+        match unsafe { get().viewContext().save() } {
+            Ok(()) => true,
+            Err(err) => {
+                eprintln!("failed saving key {name:?}: {err:#?}");
+                false
+            }
+        }
     }
 
     fn remove_key(&mut self, name: &str) {
@@ -186,5 +202,35 @@ impl StorageBackend for MovieStorageBackend {
         if let Some(existing) = self.lookup_data(&key) {
             self.movie.removeMovieDataObject(&existing);
         }
+
+        unsafe { get().viewContext().save() }.unwrap_or_else(|err| {
+            eprintln!("failed removing key {name:?}: {err:#?}");
+        })
     }
+}
+
+static PERSISTENT: OnceLock<Retained<NSPersistentContainer>> = OnceLock::new();
+
+pub fn setup() {
+    let persistent = PERSISTENT.get_or_init(|| unsafe {
+        NSPersistentContainer::persistentContainerWithName(ns_string!("Ruffle"))
+    });
+
+    let block = RcBlock::new(
+        |descriptor: NonNull<NSPersistentStoreDescription>, err: *mut NSError| {
+            if let Some(err) = unsafe { err.as_ref() } {
+                panic!("failed loading: {err:#?}");
+            }
+            let _descriptor = unsafe { descriptor.as_ref() };
+        },
+    );
+    unsafe { persistent.loadPersistentStoresWithCompletionHandler(&block) };
+
+    tracing::trace!("finished storage setup");
+}
+
+pub fn get() -> &'static NSPersistentContainer {
+    PERSISTENT
+        .get()
+        .expect("NSPersistentContainer must be initialized")
 }
