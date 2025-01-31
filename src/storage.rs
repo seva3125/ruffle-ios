@@ -12,18 +12,23 @@
 //! TODO:
 //! - Figure out sync failures.
 //! - Better error handling.
+//! - Use `define_class!` once we can create ivars with specific names in
+//!   that (required for NSManagedObject to work).
 //!
 //! To generate data model interface to compare with, modify .xcdatamodeld and
 //! set codegen = Class definition on every entity. Then run:
 //! /Applications/Xcode.app/Contents/Developer/usr/bin/momc --action generate ./Ruffle.xcdatamodeld storage
 #![allow(non_snake_case)]
 
+use std::ops::Deref;
 use std::ptr::NonNull;
 use std::sync::OnceLock;
 
 use block2::RcBlock;
+use objc2::encode::{Encoding, RefEncode};
 use objc2::rc::{Allocated, Retained};
-use objc2::{define_class, extern_methods, AllocAnyThread};
+use objc2::runtime::{AnyClass, ClassBuilder};
+use objc2::{extern_methods, msg_send, AllocAnyThread, ClassType, Message};
 use objc2_core_data::{
     NSFetchRequest, NSFetchedResultsController, NSManagedObject, NSManagedObjectContext,
     NSPersistentContainer, NSPersistentStoreDescription,
@@ -34,26 +39,53 @@ use objc2_foundation::{
 use ruffle_core::backend::storage::StorageBackend;
 use ruffle_frontend_utils::player_options::PlayerOptions;
 
-define_class!(
-    /// The data relevant for an SWF movie / a Ruffle Bundle.
-    #[unsafe(super(NSManagedObject))]
-    #[name = "Movie"]
-    #[derive(Debug)]
-    pub struct Movie;
-);
+/// The data relevant for an SWF movie / a Ruffle Bundle.
+#[repr(transparent)]
+#[derive(Debug)]
+pub struct Movie {
+    superclass: NSManagedObject,
+}
+
+unsafe impl RefEncode for Movie {
+    const ENCODING_REF: Encoding = NSManagedObject::ENCODING_REF;
+}
+
+unsafe impl Message for Movie {}
+
+impl Deref for Movie {
+    type Target = NSManagedObject;
+
+    fn deref(&self) -> &Self::Target {
+        &self.superclass
+    }
+}
 
 impl Movie {
-    // NSManagedObject initializers.
-    extern_methods!(
-        #[unsafe(method(initWithContext:))]
-        pub fn initWithContext(
-            this: Allocated<Self>,
-            moc: &NSManagedObjectContext,
-        ) -> Retained<Self>;
+    pub fn class() -> &'static AnyClass {
+        static CLS: OnceLock<&'static AnyClass> = OnceLock::new();
 
-        #[unsafe(method(fetchRequest))]
-        fn fetchRequest() -> Retained<NSFetchRequest<Self>>;
-    );
+        CLS.get_or_init(|| {
+            eprintln!("create Movie class");
+            let mut builder = ClassBuilder::new(c"Movie", NSManagedObject::class()).unwrap();
+
+            // FIXME: Deallocation of these in `dealloc`.
+            builder.add_ivar::<*mut NSURL>(c"link");
+            builder.add_ivar::<*mut NSData>(c"userOptions");
+            builder.add_ivar::<*mut NSSet<MovieData>>(c"movieData");
+
+            builder.register()
+        })
+    }
+
+    // NSManagedObject initializers.
+
+    fn initWithContext(this: Allocated<Self>, moc: &NSManagedObjectContext) -> Retained<Self> {
+        unsafe { msg_send![this, initWithContext: moc] }
+    }
+
+    fn fetchRequest() -> Retained<NSFetchRequest<Self>> {
+        unsafe { msg_send![Self::class(), fetchRequest] }
+    }
 
     // Properties
     extern_methods!(
@@ -110,28 +142,54 @@ impl Movie {
     );
 }
 
-define_class!(
-    /// Key/value pairs of data that the movie itself wants to store (.sol).
-    ///
-    /// Intended invariant: Keys are unique.
-    #[unsafe(super(NSManagedObject))]
-    #[name = "MovieData"]
-    #[derive(Debug)]
-    pub struct MovieData;
-);
+/// Key/value pairs of data that the movie itself wants to store (.sol).
+///
+/// Intended invariant: Keys are unique.
+#[repr(transparent)]
+#[derive(Debug)]
+pub struct MovieData {
+    superclass: NSManagedObject,
+}
+
+unsafe impl RefEncode for MovieData {
+    const ENCODING_REF: Encoding = NSManagedObject::ENCODING_REF;
+}
+
+unsafe impl Message for MovieData {}
+
+impl Deref for MovieData {
+    type Target = NSManagedObject;
+
+    fn deref(&self) -> &Self::Target {
+        &self.superclass
+    }
+}
 
 impl MovieData {
-    // NSManagedObject initializers.
-    extern_methods!(
-        #[unsafe(method(initWithContext:))]
-        pub fn initWithContext(
-            this: Allocated<Self>,
-            moc: &NSManagedObjectContext,
-        ) -> Retained<Self>;
+    pub fn class() -> &'static AnyClass {
+        static CLS: OnceLock<&'static AnyClass> = OnceLock::new();
 
-        #[unsafe(method(fetchRequest))]
-        fn fetchRequest() -> Retained<NSFetchRequest<Self>>;
-    );
+        CLS.get_or_init(|| {
+            eprintln!("create MovieData class");
+            let mut builder = ClassBuilder::new(c"MovieData", NSManagedObject::class()).unwrap();
+
+            // FIXME: Deallocation of these in `dealloc`.
+            builder.add_ivar::<*mut NSString>(c"key");
+            builder.add_ivar::<*mut NSData>(c"value");
+
+            builder.register()
+        })
+    }
+
+    // NSManagedObject initializers.
+
+    fn initWithContext(this: Allocated<Self>, moc: &NSManagedObjectContext) -> Retained<Self> {
+        unsafe { msg_send![this, initWithContext: moc] }
+    }
+
+    fn fetchRequest() -> Retained<NSFetchRequest<Self>> {
+        unsafe { msg_send![Self::class(), fetchRequest] }
+    }
 
     // Properties
     extern_methods!(
@@ -184,9 +242,8 @@ impl StorageBackend for MovieStorageBackend {
         if let Some(existing) = self.lookup_data(&key) {
             existing.setValue(&value);
         } else {
-            let data = MovieData::initWithContext(MovieData::alloc(), unsafe {
-                &container().viewContext()
-            });
+            let data = unsafe { msg_send![MovieData::class(), alloc] };
+            let data = MovieData::initWithContext(data, unsafe { &container().viewContext() });
             data.setKey(&key);
             data.setValue(&value);
             self.movie.addMovieDataObject(&data);
@@ -243,7 +300,8 @@ fn container() -> &'static NSPersistentContainer {
 }
 
 pub fn add_movie(url: &NSURL) {
-    let movie = Movie::initWithContext(Movie::alloc(), unsafe { &container().viewContext() });
+    let movie = unsafe { msg_send![Movie::class(), alloc] };
+    let movie = Movie::initWithContext(movie, unsafe { &container().viewContext() });
     movie.setLink(&url);
     movie.set_user_options(&PlayerOptions::default());
 
