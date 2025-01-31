@@ -1,16 +1,18 @@
-use std::cell::{OnceCell, RefCell};
+use std::cell::OnceCell;
 
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::{AnyObject, ProtocolObject};
 use objc2::{define_class, msg_send, AllocAnyThread, ClassType, DefinedClass as _, Message};
+use objc2_core_data::{
+    NSFetchedResultsController, NSFetchedResultsControllerDelegate, NSFetchedResultsSectionInfo,
+};
 use objc2_foundation::{
     ns_string, MainThreadMarker, NSArray, NSBundle, NSCoder, NSIndexPath, NSInteger, NSObject,
     NSObjectProtocol, NSString, NSURL,
 };
 use objc2_ui_kit::{
-    NSDataAsset, NSIndexPathUIKitAdditions, UIBarButtonItem, UIDocumentPickerDelegate,
-    UIDocumentPickerViewController, UILabel, UITableView, UITableViewCell, UITableViewController,
-    UITableViewDataSource,
+    NSDataAsset, UIBarButtonItem, UIDocumentPickerDelegate, UIDocumentPickerViewController,
+    UILabel, UITableView, UITableViewCell, UITableViewController, UITableViewDataSource,
 };
 #[allow(deprecated)]
 use objc2_ui_kit::{UIDocumentPickerMode, UIStoryboardSegue};
@@ -23,12 +25,13 @@ use url::Url;
 
 use crate::document::{RUF_UTI, SWF_UTI};
 use crate::edit_controller::EditController;
-use crate::{PlayerController, PlayerView};
+use crate::storage::Movie;
+use crate::{storage, PlayerController, PlayerView};
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Ivars {
     logo_view: OnceCell<Retained<PlayerView>>,
-    bundles: RefCell<Vec<BundleInformation>>,
+    fetched_movies: Retained<NSFetchedResultsController<Movie>>,
 }
 
 define_class!(
@@ -49,17 +52,38 @@ define_class!(
             nib_bundle_or_nil: Option<&NSBundle>,
         ) -> Retained<Self> {
             tracing::info!("library init");
-            let this = this.set_ivars(Ivars::default());
-            unsafe {
+            let this = this.set_ivars(Ivars {
+                logo_view: Default::default(),
+                fetched_movies: storage::all_movies(),
+            });
+            let this: Retained<Self> = unsafe {
                 msg_send![super(this), initWithNibName: nib_name_or_nil, bundle: nib_bundle_or_nil]
-            }
+            };
+            unsafe {
+                this.ivars()
+                    .fetched_movies
+                    .setDelegate(Some(ProtocolObject::from_ref(&*this)))
+            };
+            this
         }
 
         #[unsafe(method_id(initWithCoder:))]
         fn _init_with_coder(this: Allocated<Self>, coder: &NSCoder) -> Option<Retained<Self>> {
             tracing::info!("library init");
-            let this = this.set_ivars(Ivars::default());
-            unsafe { msg_send![super(this), initWithCoder: coder] }
+            let this = this.set_ivars(Ivars {
+                logo_view: Default::default(),
+                fetched_movies: storage::all_movies(),
+            });
+            let this: Option<Retained<Self>> =
+                unsafe { msg_send![super(this), initWithCoder: coder] };
+            if let Some(this) = &this {
+                unsafe {
+                    this.ivars()
+                        .fetched_movies
+                        .setDelegate(Some(ProtocolObject::from_ref(&**this)));
+                }
+            }
+            this
         }
 
         #[unsafe(method(viewDidLoad))]
@@ -147,14 +171,16 @@ define_class!(
         fn tableView_numberOfRowsInSection(
             &self,
             _table_view: &UITableView,
-            _section: NSInteger,
+            section: NSInteger,
         ) -> NSInteger {
-            self.ivars().bundles.borrow().len() as NSInteger
+            let sections = unsafe { self.ivars().fetched_movies.sections().unwrap() };
+            let section_info = sections.objectAtIndex(section as usize);
+            unsafe { section_info.numberOfObjects() as isize }
         }
 
         #[unsafe(method(numberOfSectionsInTableView:))]
         fn numberOfSectionsInTableView(&self, _table_view: &UITableView) -> NSInteger {
-            1
+            unsafe { self.ivars().fetched_movies.sections().unwrap().count() as NSInteger }
         }
 
         #[unsafe(method_id(tableView:cellForRowAtIndexPath:))]
@@ -177,6 +203,9 @@ define_class!(
     }
 
     #[allow(non_snake_case)]
+    unsafe impl NSFetchedResultsControllerDelegate for LibraryController {}
+
+    #[allow(non_snake_case)]
     unsafe impl UIDocumentPickerDelegate for LibraryController {
         #[unsafe(method(documentPickerWasCancelled:))]
         fn documentPickerWasCancelled(&self, _controller: &UIDocumentPickerViewController) {
@@ -190,6 +219,7 @@ define_class!(
             url: &NSURL,
         ) {
             tracing::info!("completed document picker: {url:?}");
+            storage::add_movie(url);
         }
     }
 );
@@ -204,17 +234,12 @@ impl LibraryController {
 
         self.setup_logo();
 
-        let mut bundles = self.ivars().bundles.borrow_mut();
-        bundles.push(BundleInformation {
-            name: "Example SWF".into(),
-            url: Url::parse("file:///example.swf").unwrap(),
-            player: PlayerOptions::default(),
-        });
-        bundles.push(BundleInformation {
-            name: "Another example".into(),
-            url: Url::parse("file:///example2.swf").unwrap(),
-            player: PlayerOptions::default(),
-        });
+        unsafe {
+            self.ivars()
+                .fetched_movies
+                .performFetch()
+                .expect("failed fetching movies")
+        };
     }
 
     fn setup_logo(&self) {
@@ -343,14 +368,28 @@ impl LibraryController {
         table_view: &UITableView,
         index_path: &NSIndexPath,
     ) -> Retained<UITableViewCell> {
-        let bundle = &self.ivars().bundles.borrow()[unsafe { index_path.row() } as usize];
-
         unsafe {
             let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
                 ns_string!("library-item"),
                 index_path,
             );
             let subviews = cell.contentView().subviews();
+
+            let movie = self.ivars().fetched_movies.objectAtIndexPath(index_path);
+            let _url = movie.link();
+
+            // TODO: Cache data here somehow?
+            // if url.startAccessingSecurityScopedResource() {
+            //     BundleInformation::parse(input);
+
+            //     url.stopAccessingSecurityScopedResource();
+            // } else {
+
+            let bundle = BundleInformation {
+                name: "Another example".into(),
+                url: Url::parse("file:///example2.swf").unwrap(),
+                player: PlayerOptions::default(),
+            };
 
             let title = subviews.objectAtIndex(1).downcast::<UILabel>().unwrap();
             title.setText(Some(&NSString::from_str(&bundle.name)));

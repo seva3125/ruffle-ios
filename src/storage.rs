@@ -3,7 +3,7 @@
 //! Overview:
 //! - Movie
 //!   - link
-//!   - userSettings
+//!   - userOptions
 //!   - movieData
 //!     - key/value
 //!
@@ -25,11 +25,14 @@ use block2::RcBlock;
 use objc2::rc::{Allocated, Retained};
 use objc2::{define_class, extern_methods, AllocAnyThread};
 use objc2_core_data::{
-    NSFetchRequest, NSManagedObject, NSManagedObjectContext, NSPersistentContainer,
-    NSPersistentStoreDescription,
+    NSFetchRequest, NSFetchedResultsController, NSManagedObject, NSManagedObjectContext,
+    NSPersistentContainer, NSPersistentStoreDescription,
 };
-use objc2_foundation::{ns_string, NSData, NSError, NSSet, NSString, NSURL};
+use objc2_foundation::{
+    ns_string, NSArray, NSData, NSError, NSSet, NSSortDescriptor, NSString, NSURL,
+};
 use ruffle_core::backend::storage::StorageBackend;
+use ruffle_frontend_utils::player_options::PlayerOptions;
 
 define_class!(
     /// The data relevant for an SWF movie / a Ruffle Bundle.
@@ -37,14 +40,6 @@ define_class!(
     #[name = "Movie"]
     #[derive(Debug)]
     pub struct Movie;
-
-    /// NSManagedObject override.
-    impl Movie {
-        #[unsafe(method_id(fetchRequest))]
-        fn fetchRequest() -> Retained<NSFetchRequest<Self>> {
-            unsafe { NSFetchRequest::fetchRequestWithEntityName(ns_string!("Movie")) }
-        }
-    }
 );
 
 impl Movie {
@@ -55,6 +50,9 @@ impl Movie {
             this: Allocated<Self>,
             moc: &NSManagedObjectContext,
         ) -> Retained<Self>;
+
+        #[unsafe(method(fetchRequest))]
+        fn fetchRequest() -> Retained<NSFetchRequest<Self>>;
     );
 
     // Properties
@@ -69,11 +67,11 @@ impl Movie {
         pub fn setLink(&self, value: &NSURL);
 
         /// Any user-specified settings (overrides the Ruffle Bundle's preconfigured settings).
-        #[unsafe(method(userSettings))]
-        pub fn userSettings(&self) -> Retained<NSData>;
+        #[unsafe(method(userOptions))]
+        fn _userOptions(&self) -> Retained<NSData>;
 
-        #[unsafe(method(setUserSettings:))]
-        pub fn setUserSettings(&self, value: &NSData);
+        #[unsafe(method(setUserOptions:))]
+        fn _setUserOptions(&self, value: &NSData);
 
         /// Data the SWF itself may have stored (the `.sol` key-value store).
         #[unsafe(method(movieData))]
@@ -82,6 +80,17 @@ impl Movie {
         #[unsafe(method(setMovieData:))]
         pub fn setMovieData(&self, values: &NSSet<MovieData>);
     );
+
+    pub fn user_options(&self) -> PlayerOptions {
+        // TODO: Convert from binary data in _userOptions.
+        // Maybe using serde?
+        PlayerOptions::default()
+    }
+
+    pub fn set_user_options(&self, _options: &PlayerOptions) {
+        // TODO: Convert to binary data.
+        self._setUserOptions(&NSData::with_bytes(b"{}"));
+    }
 
     // Perhaps: `cachedName`, to allow easily finding relevant settings for an SWF in case the user deleted?
 
@@ -109,14 +118,6 @@ define_class!(
     #[name = "MovieData"]
     #[derive(Debug)]
     pub struct MovieData;
-
-    /// NSManagedObject override.
-    impl MovieData {
-        #[unsafe(method_id(fetchRequest))]
-        fn fetchRequest() -> Retained<NSFetchRequest<Self>> {
-            unsafe { NSFetchRequest::fetchRequestWithEntityName(ns_string!("MovieData")) }
-        }
-    }
 );
 
 impl MovieData {
@@ -127,6 +128,9 @@ impl MovieData {
             this: Allocated<Self>,
             moc: &NSManagedObjectContext,
         ) -> Retained<Self>;
+
+        #[unsafe(method(fetchRequest))]
+        fn fetchRequest() -> Retained<NSFetchRequest<Self>>;
     );
 
     // Properties
@@ -180,15 +184,16 @@ impl StorageBackend for MovieStorageBackend {
         if let Some(existing) = self.lookup_data(&key) {
             existing.setValue(&value);
         } else {
-            let data =
-                MovieData::initWithContext(MovieData::alloc(), unsafe { &get().viewContext() });
+            let data = MovieData::initWithContext(MovieData::alloc(), unsafe {
+                &container().viewContext()
+            });
             data.setKey(&key);
             data.setValue(&value);
             self.movie.addMovieDataObject(&data);
         }
 
         // Flush changes to disk.
-        match unsafe { get().viewContext().save() } {
+        match unsafe { container().viewContext().save() } {
             Ok(()) => true,
             Err(err) => {
                 eprintln!("failed saving key {name:?}: {err:#?}");
@@ -200,10 +205,11 @@ impl StorageBackend for MovieStorageBackend {
     fn remove_key(&mut self, name: &str) {
         let key = NSString::from_str(name);
         if let Some(existing) = self.lookup_data(&key) {
-            self.movie.removeMovieDataObject(&existing);
+            unsafe { container().viewContext().deleteObject(&existing) };
         }
 
-        unsafe { get().viewContext().save() }.unwrap_or_else(|err| {
+        // Flush changes to disk.
+        unsafe { container().viewContext().save() }.unwrap_or_else(|err| {
             eprintln!("failed removing key {name:?}: {err:#?}");
         })
     }
@@ -221,16 +227,49 @@ pub fn setup() {
             if let Some(err) = unsafe { err.as_ref() } {
                 panic!("failed loading: {err:#?}");
             }
-            let _descriptor = unsafe { descriptor.as_ref() };
+            let descriptor = unsafe { descriptor.as_ref() };
+            tracing::info!("loading {descriptor:?}");
         },
     );
     unsafe { persistent.loadPersistentStoresWithCompletionHandler(&block) };
 
-    tracing::trace!("finished storage setup");
+    tracing::info!("finished storage setup");
 }
 
-pub fn get() -> &'static NSPersistentContainer {
+fn container() -> &'static NSPersistentContainer {
     PERSISTENT
         .get()
         .expect("NSPersistentContainer must be initialized")
+}
+
+pub fn add_movie(url: &NSURL) {
+    let movie = Movie::initWithContext(Movie::alloc(), unsafe { &container().viewContext() });
+    movie.setLink(&url);
+    movie.set_user_options(&PlayerOptions::default());
+
+    // Flush changes to disk.
+    unsafe { container().viewContext().save() }.unwrap_or_else(|err| {
+        eprintln!("failed adding movie {url:?}: {err:#?}");
+    })
+}
+
+pub fn all_movies() -> Retained<NSFetchedResultsController<Movie>> {
+    unsafe {
+        let fetch_request = Movie::fetchRequest();
+
+        let link_descriptor = NSSortDescriptor::sortDescriptorWithKey_ascending(
+            Some(ns_string!("link.lastPathComponent")),
+            true,
+        );
+        let sort_descriptors = NSArray::from_retained_slice(&[link_descriptor]);
+        fetch_request.setSortDescriptors(Some(&sort_descriptors));
+
+        NSFetchedResultsController::initWithFetchRequest_managedObjectContext_sectionNameKeyPath_cacheName(
+            NSFetchedResultsController::alloc(),
+            &fetch_request,
+            &container().viewContext(),
+            None, // No sectioning
+            None, // No cache
+        )
+    }
 }
