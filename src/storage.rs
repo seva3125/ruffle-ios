@@ -21,7 +21,7 @@
 #![allow(non_snake_case)]
 
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
 use std::sync::OnceLock;
 
@@ -38,8 +38,11 @@ use objc2_foundation::{
     ns_string, NSArray, NSData, NSError, NSSet, NSSortDescriptor, NSString, NSURL,
 };
 use ruffle_core::backend::storage::StorageBackend;
-use ruffle_frontend_utils::bundle::Bundle;
+use ruffle_frontend_utils::bundle::source::BundleSourceError;
+use ruffle_frontend_utils::bundle::{Bundle, BundleError};
+use ruffle_frontend_utils::content::PlayingContent;
 use ruffle_frontend_utils::player_options::PlayerOptions;
+use url::Url;
 
 /// The data relevant for an SWF movie / a Ruffle Bundle.
 #[repr(transparent)]
@@ -196,10 +199,6 @@ impl MovieData {
         unsafe { msg_send![this, initWithContext: moc] }
     }
 
-    fn fetchRequest() -> Retained<NSFetchRequest<Self>> {
-        unsafe { msg_send![Self::class(), fetchRequest] }
-    }
-
     // Properties
     extern_methods!(
         #[unsafe(method(key))]
@@ -224,7 +223,7 @@ impl MovieData {
 
 #[derive(Debug, Clone)]
 pub struct MovieStorageBackend {
-    movie: Retained<Movie>,
+    pub movie: Retained<Movie>,
 }
 
 impl MovieStorageBackend {
@@ -308,19 +307,23 @@ fn container() -> &'static NSPersistentContainer {
         .expect("NSPersistentContainer must be initialized")
 }
 
-fn access_security_scoped_resource(url: &NSURL) -> Option<impl Drop + '_> {
-    struct OnDrop<'a>(&'a NSURL);
+pub struct SecurityScopedResource {
+    url: Retained<NSURL>,
+}
 
-    impl Drop for OnDrop<'_> {
-        fn drop(&mut self) {
-            unsafe { self.0.stopAccessingSecurityScopedResource() };
+impl SecurityScopedResource {
+    fn access(url: &NSURL) -> Option<Self> {
+        if unsafe { url.startAccessingSecurityScopedResource() } {
+            Some(Self { url: url.retain() })
+        } else {
+            None
         }
     }
+}
 
-    if unsafe { url.startAccessingSecurityScopedResource() } {
-        Some(OnDrop(url))
-    } else {
-        None
+impl Drop for SecurityScopedResource {
+    fn drop(&mut self) {
+        unsafe { self.url.stopAccessingSecurityScopedResource() };
     }
 }
 
@@ -330,28 +333,58 @@ fn url_to_path(url: &NSURL) -> PathBuf {
     PathBuf::from(path.to_string())
 }
 
-pub fn add_local_movie(url: &NSURL) {
-    assert!(unsafe { url.isFileURL() }, "was not file URL");
+pub fn get_playing_content(nsurl: &NSURL) -> PlayingContent {
+    let s = unsafe { nsurl.absoluteString() }.unwrap().to_string();
+    let url = Url::parse(&s).unwrap();
 
-    let Some(access) = access_security_scoped_resource(url) else {
-        panic!("failed accessing NSURL: {url:?}");
-    };
-    // TODO: Load SWFs here too.
-    let Ok(bundle) = Bundle::from_path(url_to_path(url)).map_err(|err| {
-        eprintln!("failed loading bundle {url:?}: {err}");
-    }) else {
-        return;
-    };
-    drop(access);
-
-    for warning in bundle.warnings() {
-        eprintln!("bundle warning: {warning}");
+    if !unsafe { nsurl.isFileURL() } {
+        return PlayingContent::DirectFile(url);
     }
+
+    // Ensure we are authorized to read the bundle contents.
+    let _access = SecurityScopedResource::access(nsurl)
+        .unwrap_or_else(|| panic!("failed accessing NSURL: {url:?}"));
+
+    match Bundle::from_path(url_to_path(&nsurl)) {
+        Ok(bundle) => {
+            if bundle.warnings().is_empty() {
+                tracing::info!("opening bundle at {nsurl:?}");
+            } else {
+                // TODO: Show warnings to user (toast?)
+                tracing::warn!("opening bundle at {nsurl:?} with warnings");
+                for warning in bundle.warnings() {
+                    tracing::warn!("{warning}");
+                }
+            }
+            PlayingContent::Bundle(url, bundle)
+        }
+        Err(BundleError::BundleDoesntExist)
+        | Err(BundleError::InvalidSource(BundleSourceError::UnknownSource)) => {
+            // Open it as a swf - this likely isn't a bundle at all
+            PlayingContent::DirectFile(url)
+        }
+        Err(e) => panic!("failed opening bundle {nsurl:?}: {e}"),
+    }
+}
+
+pub fn add_movie(url: &NSURL) {
+    let content = get_playing_content(url);
 
     let movie = unsafe { msg_send![Movie::class(), alloc] };
     let movie = Movie::initWithContext(movie, unsafe { &container().viewContext() });
     movie.setLink(&url);
-    movie.setCachedName(&NSString::from_str(&bundle.information().name));
+    let name = match content {
+        PlayingContent::Bundle(_, bundle) => NSString::from_str(&bundle.information().name),
+        PlayingContent::DirectFile(url) => {
+            // Try to figure out a reasonable name for the URL.
+            if let Some(file_stem) = Path::new(url.path()).file_stem() {
+                NSString::from_str(&file_stem.to_string_lossy())
+            } else {
+                NSString::from_str(&url.host_str().unwrap_or("unknown"))
+            }
+        }
+    };
+    movie.setCachedName(&name);
     movie.set_user_options(&PlayerOptions::default());
 
     // Flush changes to disk.

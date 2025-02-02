@@ -1,51 +1,69 @@
-use std::cell::OnceCell;
+use std::cell::{Cell, OnceCell};
 use std::fs::File;
 use std::path::Path;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, MutexGuard};
-use std::{fmt, io, ptr};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
+use std::time::Duration;
+use std::{fmt, io};
 
+use block2::RcBlock;
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::AnyObject;
-use objc2::{define_class, msg_send, AllocAnyThread, DefinedClass as _};
+use objc2::{define_class, msg_send, DefinedClass as _};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{
-    ns_string, MainThreadMarker, NSBundle, NSCoder, NSObjectProtocol, NSString,
+    MainThreadMarker, NSBundle, NSCoder, NSObjectProtocol, NSRunLoop, NSString,
 };
-use objc2_ui_kit::{NSDataAsset, UIViewController};
+use objc2_ui_kit::UIViewController;
+use ruffle_core::backend::storage::StorageBackend;
 use ruffle_core::config::Letterbox;
-use ruffle_core::tag_utils::SwfMovie;
-use ruffle_core::{Player, PlayerBuilder};
+use ruffle_core::{LoadBehavior, Player, PlayerBuilder};
 use ruffle_frontend_utils::backends::audio::CpalAudioBackend;
 use ruffle_frontend_utils::backends::executor::{AsyncExecutor, PollRequester};
 use ruffle_frontend_utils::backends::navigator::{ExternalNavigatorBackend, NavigatorInterface};
 use ruffle_frontend_utils::content::PlayingContent;
+use ruffle_frontend_utils::player_options::PlayerOptions;
+use ruffle_render::quality::StageQuality;
 use url::Url;
 
 use crate::player_view::PlayerView;
 
-#[derive(Clone)]
-pub struct EventSender(Rc<OnceCell<Arc<AsyncExecutor<EventSender>>>>);
+#[derive(Clone, Debug)]
+pub struct EventSender {
+    executor: Rc<OnceCell<Weak<AsyncExecutor<EventSender>>>>,
+    main_run_loop: Retained<NSRunLoop>,
+}
 
 impl PollRequester for EventSender {
     fn request_poll(&self) {
-        eprintln!("request_poll, main: {}", MainThreadMarker::new().is_some());
-        self.0.get().expect("initialized").poll_all();
+        tracing::info!("request_poll");
+        if let Some(executor) = self.executor.get().expect("initialized").upgrade() {
+            unsafe {
+                self.main_run_loop.performBlock(&RcBlock::new(move || {
+                    tracing::info!("polling");
+                    executor.poll_all();
+                }))
+            };
+        } else {
+            tracing::error!("tried to poll, but executor was dropped");
+        }
     }
 }
 
 #[derive(Default)]
 pub struct Ivars {
-    movie_path: Option<String>,
+    // Populated to be used in `viewDidLoad`.
+    pub content: Cell<Option<PlayingContent>>,
+    pub user_options: Cell<Option<PlayerOptions>>,
+    pub storage_backend: Cell<Option<Box<dyn StorageBackend>>>,
+
     player: OnceCell<Arc<Mutex<Player>>>,
     executor: OnceCell<Arc<AsyncExecutor<EventSender>>>,
 }
 
 impl fmt::Debug for Ivars {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Ivars")
-            .field("movie_path", &self.movie_path)
-            .finish_non_exhaustive()
+        f.debug_struct("Ivars").finish_non_exhaustive()
     }
 }
 
@@ -56,6 +74,7 @@ impl NavigatorInterface for Navigator {
     fn navigate_to_website(&self, _url: Url) {}
 
     async fn open_file(&self, path: &Path) -> io::Result<File> {
+        eprintln!("trying to open: {path:?}");
         File::open(path)
     }
 
@@ -158,13 +177,19 @@ define_class!(
 );
 
 impl PlayerController {
-    pub fn new(mtm: MainThreadMarker, movie_path: String) -> Retained<Self> {
+    pub fn new(
+        mtm: MainThreadMarker,
+        content: PlayingContent,
+        options: PlayerOptions,
+    ) -> Retained<Self> {
         let this = mtm.alloc().set_ivars(Ivars {
-            movie_path: Some(movie_path),
+            content: Cell::new(Some(content)),
+            user_options: Cell::new(Some(options)),
+            storage_backend: Cell::new(None),
             player: OnceCell::new(),
             executor: OnceCell::new(),
         });
-        let nil = ptr::null::<AnyObject>();
+        let nil = None::<&AnyObject>;
         unsafe { msg_send![super(this), initWithNibName: nil, bundle: nil] }
     }
 
@@ -185,61 +210,90 @@ impl PlayerController {
         let view = self.view();
         let renderer = view.create_renderer();
 
-        let sender = EventSender(Rc::new(OnceCell::new()));
+        let sender = EventSender {
+            executor: Rc::new(OnceCell::new()),
+            main_run_loop: unsafe { NSRunLoop::mainRunLoop() },
+        };
         let (executor, future_spawner) = AsyncExecutor::new(sender.clone());
-        sender
-            .0
-            .set(executor.clone())
-            .unwrap_or_else(|_| panic!("init once"));
+        sender.executor.set(Arc::downgrade(&executor)).unwrap();
 
-        let movie_url = Url::parse("file://movie.swf").unwrap();
+        let content = self.ivars().content.take().unwrap();
+
+        let player_options = self.ivars().user_options.take().unwrap();
+        let player_options = match &content {
+            PlayingContent::DirectFile(_) => player_options.clone(),
+            PlayingContent::Bundle(_, bundle) => player_options.or(&bundle.information().player),
+        };
+
+        let movie_url = content.initial_swf_url().clone();
         let navigator = ExternalNavigatorBackend::new(
-            movie_url.clone(),
-            None,
-            None,
+            player_options
+                .base
+                .to_owned()
+                .unwrap_or_else(|| movie_url.clone()),
+            player_options.referer.clone(),
+            player_options.cookie.clone(),
             future_spawner,
             None,
-            true,
+            player_options.upgrade_to_https.unwrap_or_default(),
             Default::default(),
             ruffle_core::backend::navigator::SocketMode::Allow,
-            Rc::new(PlayingContent::DirectFile(movie_url)),
+            Rc::new(content),
             Navigator,
         );
 
         let mut builder = PlayerBuilder::new()
             .with_renderer(renderer)
-            .with_navigator(navigator);
+            .with_navigator(navigator)
+            .with_letterbox(player_options.letterbox.unwrap_or(Letterbox::On))
+            .with_max_execution_duration(
+                player_options
+                    .max_execution_duration
+                    .unwrap_or(Duration::MAX),
+            )
+            .with_quality(player_options.quality.unwrap_or(StageQuality::High))
+            .with_align(
+                player_options.align.unwrap_or_default(),
+                player_options.force_align.unwrap_or_default(),
+            )
+            .with_scale_mode(
+                player_options.scale.unwrap_or_default(),
+                player_options.force_scale.unwrap_or_default(),
+            )
+            .with_load_behavior(
+                player_options
+                    .load_behavior
+                    .unwrap_or(LoadBehavior::Streaming),
+            )
+            .with_spoofed_url(player_options.spoof_url.clone().map(|url| url.to_string()))
+            .with_page_url(player_options.spoof_url.clone().map(|url| url.to_string()))
+            .with_player_version(player_options.player_version)
+            .with_player_runtime(player_options.player_runtime.unwrap_or_default())
+            .with_frame_rate(player_options.frame_rate);
 
-        // Temporary until we figure out actual loading
-        let movie = if let Some(path) = self.ivars().movie_path.as_deref() {
-            SwfMovie::from_path(path, None).expect("failed loading movie")
-        } else {
-            let asset =
-                unsafe { NSDataAsset::initWithName(NSDataAsset::alloc(), ns_string!("logo-anim")) }
-                    .expect("asset store should contain logo-anim");
-            let data = unsafe { asset.data() };
-            // SAFETY: SwfMovie::from_data won't modify the NSData.
-            let bytes = unsafe { data.as_bytes_unchecked() };
-            SwfMovie::from_data(bytes, "file://logo-anim.swf".into(), None).expect("loading movie")
-        };
-        builder = builder.with_movie(movie);
+        if player_options.dummy_external_interface.unwrap_or_default() {
+            // TODO
+        }
 
         match CpalAudioBackend::new(None) {
             Ok(audio) => builder = builder.with_audio(audio),
             Err(e) => tracing::error!("Unable to create audio device: {e}"),
         }
 
+        if let Some(storage) = self.ivars().storage_backend.take() {
+            builder = builder.with_storage(storage);
+        }
+
         let player = builder.build();
 
         let mut player_lock = player.lock().unwrap();
-        // player_lock.fetch_root_movie(
-        //     self.ivars().movie_url.clone(),
-        //     vec![],
-        //     Box::new(|metadata| {
-        //         eprintln!("got movie: {:?}", metadata);
-        //     }),
-        // );
-        player_lock.set_letterbox(Letterbox::On);
+        player_lock.fetch_root_movie(
+            movie_url.to_string(),
+            player_options.parameters.to_owned(),
+            Box::new(|metadata| {
+                eprintln!("got movie: {metadata:?}");
+            }),
+        );
         drop(player_lock);
 
         view.set_player(player.clone());

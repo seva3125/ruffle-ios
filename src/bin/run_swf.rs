@@ -6,7 +6,10 @@ use objc2::{define_class, msg_send, ClassType, DefinedClass as _, MainThreadOnly
 use objc2_foundation::{MainThreadMarker, NSObject, NSObjectProtocol};
 use objc2_ui_kit::{UIApplication, UIApplicationDelegate, UIScreen, UIWindow};
 
+use ruffle_frontend_utils::content::PlayingContent;
+use ruffle_frontend_utils::player_options::PlayerOptions;
 use ruffle_ios::{init_logging, launch, PlayerController};
+use url::Url;
 
 #[derive(Debug)]
 pub struct Ivars {
@@ -45,8 +48,8 @@ define_class!(
 
 impl AppDelegate {
     fn setup(&self) {
-        let movie_url = std::env::args().skip(1).next();
-        let movie_url = movie_url.expect("must provide a path or URL to an SWF to run");
+        let movie_path = std::env::args_os().skip(1).next();
+        let movie_path = movie_path.expect("must provide a path or URL to an SWF to run");
         let mtm = MainThreadMarker::from(self);
 
         #[allow(deprecated)] // Unsure how else we should do this when setting up?
@@ -54,7 +57,10 @@ impl AppDelegate {
 
         let window = unsafe { UIWindow::initWithFrame(mtm.alloc(), frame) };
 
-        let view_controller = PlayerController::new(mtm, movie_url);
+        let movie_path = std::path::absolute(movie_path).unwrap();
+        let content = PlayingContent::DirectFile(Url::from_file_path(movie_path).unwrap());
+
+        let view_controller = PlayerController::new(mtm, content, PlayerOptions::default());
         window.setRootViewController(Some(&view_controller));
 
         window.makeKeyAndVisible();

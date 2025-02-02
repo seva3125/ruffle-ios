@@ -27,7 +27,7 @@ use url::Url;
 
 use crate::document::{RUF_UTI, SWF_UTI};
 use crate::edit_controller::EditController;
-use crate::storage::Movie;
+use crate::storage::{Movie, MovieStorageBackend};
 use crate::{storage, PlayerController, PlayerView};
 
 #[derive(Debug)]
@@ -281,7 +281,7 @@ define_class!(
             url: &NSURL,
         ) {
             tracing::info!("completed document picker: {url:?}");
-            storage::add_local_movie(url);
+            storage::add_movie(url);
         }
     }
 );
@@ -374,8 +374,21 @@ impl LibraryController {
             let player_controller = destination.downcast_ref::<PlayerController>().unwrap();
             let cell = sender.downcast_ref::<UITableViewCell>().unwrap();
 
-            // TODO
-            dbg!(cell, player_controller);
+            let index_path = unsafe { self.tableView().unwrap().indexPathForCell(&cell).unwrap() };
+            let movie = unsafe { self.ivars().fetched_movies.objectAtIndexPath(&index_path) };
+
+            player_controller
+                .ivars()
+                .content
+                .set(Some(storage::get_playing_content(&movie.link())));
+            player_controller
+                .ivars()
+                .user_options
+                .set(Some(movie.user_options()));
+            player_controller
+                .ivars()
+                .storage_backend
+                .set(Some(Box::new(MovieStorageBackend { movie })));
         } else {
             unreachable!("unknown identifier for segue: {identifier:?}")
         }
