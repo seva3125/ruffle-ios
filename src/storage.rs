@@ -67,7 +67,6 @@ impl Movie {
         static CLS: OnceLock<&'static AnyClass> = OnceLock::new();
 
         CLS.get_or_init(|| {
-            eprintln!("create Movie class");
             let mut builder = ClassBuilder::new(c"Movie", NSManagedObject::class()).unwrap();
 
             // FIXME: Deallocation of these in `dealloc`.
@@ -181,7 +180,6 @@ impl MovieData {
         static CLS: OnceLock<&'static AnyClass> = OnceLock::new();
 
         CLS.get_or_init(|| {
-            eprintln!("create MovieData class");
             let mut builder = ClassBuilder::new(c"MovieData", NSManagedObject::class()).unwrap();
 
             // FIXME: Deallocation of these in `dealloc`.
