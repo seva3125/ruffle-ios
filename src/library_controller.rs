@@ -210,6 +210,8 @@ define_class!(
         }
     }
 
+    // For usage, see:
+    // https://developer.apple.com/library/archive/samplecode/CoreDataBooks/Listings/Classes_RootViewController_m.html
     #[allow(non_snake_case)]
     unsafe impl NSFetchedResultsControllerDelegate for LibraryController {
         #[unsafe(method(controllerWillChangeContent:))]

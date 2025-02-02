@@ -77,6 +77,14 @@ Internally: "movie".
 - Add settings button in library item
 - Add quicklook thumbnail generator app extension
 - Figure out what `UIDocument` actually does?
+- Ensure that CoreData stores a bookmark of the NSURL, and if not, do that ourselves.
+  - https://developer.apple.com/documentation/foundation/nsurl/1417795-bookmarkdatawithoptions?language=objc
+  - https://developer.apple.com/documentation/foundation/nsurl/1408532-writebookmarkdata?language=objc
+- Sync
+  - https://developer.apple.com/documentation/xcode/configuring-icloud-services?language=objc
+  - https://developer.apple.com/documentation/foundation/optimizing_your_app_s_data_for_icloud_backup?language=objc
+  - https://developer.apple.com/library/archive/documentation/General/Conceptual/iCloudDesignGuide/Chapters/DesigningForDocumentsIniCloud.html#//apple_ref/doc/uid/TP40012094-CH2
+  - https://developer.apple.com/documentation/uikit/synchronizing-documents-in-the-icloud-environment?language=objc
 
 ## Choices
 
