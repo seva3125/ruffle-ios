@@ -9,7 +9,7 @@ use std::{fmt, io};
 use block2::RcBlock;
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::AnyObject;
-use objc2::{define_class, msg_send, DefinedClass as _};
+use objc2::{define_class, msg_send, DefinedClass as _, Message};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{
     MainThreadMarker, NSBundle, NSCoder, NSObjectProtocol, NSRunLoop, NSString,
@@ -27,7 +27,7 @@ use ruffle_render::quality::StageQuality;
 use url::Url;
 
 use crate::player_view::PlayerView;
-use crate::storage::SecurityScopedResource;
+use crate::storage::{self, Movie, SecurityScopedResource};
 
 #[derive(Clone, Debug)]
 pub struct EventSender {
@@ -199,6 +199,34 @@ impl PlayerController {
         });
         let nil = None::<&AnyObject>;
         unsafe { msg_send![super(this), initWithNibName: nil, bundle: nil] }
+    }
+
+    pub fn empty(mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc().set_ivars(Default::default());
+        let nil = None::<&AnyObject>;
+        unsafe { msg_send![super(this), initWithNibName: nil, bundle: nil] }
+    }
+
+    /// Prepare the controller for playing the given movie.
+    pub fn setup_movie(&self, movie: &Movie) {
+        let nsurl = movie.link();
+
+        self.ivars()
+            .content
+            .set(Some(storage::get_playing_content(&nsurl)));
+        self.ivars().user_options.set(Some(movie.user_options()));
+        self.ivars()
+            .storage_backend
+            .set(Some(Box::new(storage::MovieStorageBackend {
+                movie: movie.retain(),
+            })));
+        self.ivars()
+            ._scoped_resource
+            .set(if unsafe { nsurl.isFileURL() } {
+                Some(SecurityScopedResource::access(&nsurl).expect("failed accessing NSURL"))
+            } else {
+                None
+            });
     }
 
     fn load_view(&self) {

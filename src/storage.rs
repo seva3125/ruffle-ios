@@ -370,7 +370,8 @@ pub fn get_playing_content(url: &NSURL) -> PlayingContent {
     }
 }
 
-pub fn movie_exists(url: &NSURL) -> bool {
+/// The returned movie should only be relied upon in `scene_delegate::play_url`.
+pub fn movie_from_url(url: &NSURL) -> Option<Retained<Movie>> {
     // The canonical URL in our DB is a file reference URL.
     let file_url = unsafe { url.fileReferenceURL() };
     let url = if unsafe { url.isFileURL() } {
@@ -391,10 +392,10 @@ pub fn movie_exists(url: &NSURL) -> bool {
         assert!(movie.isKindOfClass(Movie::class()));
         let movie = unsafe { Retained::cast_unchecked::<Movie>(movie) };
         if &*movie.link() == url {
-            return true;
+            return Some(movie);
         }
     }
-    false
+    None
 }
 
 pub fn add_movie(url: &NSURL) {

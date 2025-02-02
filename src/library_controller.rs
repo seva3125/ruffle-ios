@@ -26,7 +26,7 @@ use ruffle_frontend_utils::player_options::PlayerOptions;
 use url::Url;
 
 use crate::edit_controller::EditController;
-use crate::storage::{Movie, MovieStorageBackend, SecurityScopedResource};
+use crate::storage::Movie;
 use crate::{storage, PlayerController, PlayerView};
 
 // There is no standardized UTI for SWFs, so this is one we picked.
@@ -288,7 +288,7 @@ define_class!(
             url: &NSURL,
         ) {
             tracing::info!("completed document picker: {url:?}");
-            if !storage::movie_exists(&url) {
+            if !storage::movie_from_url(&url).is_none() {
                 storage::add_movie(&url);
             } else {
                 // TODO: Give the user an option here?
@@ -388,28 +388,7 @@ impl LibraryController {
 
             let index_path = unsafe { self.tableView().unwrap().indexPathForCell(&cell).unwrap() };
             let movie = unsafe { self.ivars().fetched_movies.objectAtIndexPath(&index_path) };
-            let nsurl = movie.link();
-
-            player_controller
-                .ivars()
-                .content
-                .set(Some(storage::get_playing_content(&nsurl)));
-            player_controller
-                .ivars()
-                .user_options
-                .set(Some(movie.user_options()));
-            player_controller
-                .ivars()
-                .storage_backend
-                .set(Some(Box::new(MovieStorageBackend { movie })));
-            player_controller
-                .ivars()
-                ._scoped_resource
-                .set(if unsafe { nsurl.isFileURL() } {
-                    Some(SecurityScopedResource::access(&nsurl).expect("failed accessing NSURL"))
-                } else {
-                    None
-                });
+            player_controller.setup_movie(&movie);
         } else {
             unreachable!("unknown identifier for segue: {identifier:?}")
         }
