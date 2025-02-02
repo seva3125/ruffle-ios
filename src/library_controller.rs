@@ -2,7 +2,7 @@ use std::cell::OnceCell;
 
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::{AnyObject, ProtocolObject};
-use objc2::{define_class, msg_send, AllocAnyThread, ClassType, DefinedClass as _, Message};
+use objc2::{define_class, msg_send, AllocAnyThread, DefinedClass as _, Message};
 use objc2_core_data::{
     NSFetchedResultsChangeType, NSFetchedResultsController, NSFetchedResultsControllerDelegate,
     NSFetchedResultsSectionInfo,
@@ -127,13 +127,12 @@ define_class!(
     /// See storyboard_connections.h
     impl LibraryController {
         #[unsafe(method(setLogoView:))]
-        fn _set_logo_view(&self, view: Option<&PlayerView>) {
+        fn _set_logo_view(&self, view: Option<&AnyObject>) {
             tracing::trace!("library set logo view");
-            let view = view.expect("logo view not null");
-            assert!(
-                view.isKindOfClass(PlayerView::class()),
-                "logo view not a PlayerView"
-            );
+            let view = view
+                .expect("logo view not null")
+                .downcast_ref::<PlayerView>()
+                .expect("logo view not a PlayerView");
             self.ivars()
                 .logo_view
                 .set(view.retain())
@@ -141,12 +140,12 @@ define_class!(
         }
 
         #[unsafe(method(toggleEditing:))]
-        fn _toggle_editing(&self, button: &UIBarButtonItem) {
+        fn _toggle_editing(&self, button: Option<&AnyObject>) {
             tracing::trace!("library toggle editing");
-            assert!(
-                button.isKindOfClass(UIBarButtonItem::class()),
-                "edit button not UIBarButtonItem"
-            );
+            let button = button
+                .expect("edit button not null")
+                .downcast_ref::<UIBarButtonItem>()
+                .expect("edit button not UIBarButtonItem");
             self.toggle_editing(button);
         }
 
@@ -361,10 +360,8 @@ impl LibraryController {
         if &*identifier == ns_string!("add-item") {
             // No need to configure AddController
         } else if &*identifier == ns_string!("edit-item") {
-            assert!(destination.isKindOfClass(EditController::class()));
-            let edit_controller = unsafe { Retained::cast::<EditController>(destination) };
-            assert!(sender.isKindOfClass(UITableViewCell::class()));
-            let cell = unsafe { &*(sender as *const NSObject as *const UITableViewCell) };
+            let edit_controller = destination.downcast_ref::<EditController>().unwrap();
+            let cell = sender.downcast_ref::<UITableViewCell>().unwrap();
 
             // TODO
             edit_controller.configure(BundleInformation {
@@ -374,10 +371,8 @@ impl LibraryController {
             });
             dbg!(cell);
         } else if &*identifier == ns_string!("run-item") {
-            assert!(destination.isKindOfClass(PlayerController::class()));
-            let player_controller = unsafe { Retained::cast::<PlayerController>(destination) };
-            assert!(sender.isKindOfClass(UITableViewCell::class()));
-            let cell = unsafe { &*(sender as *const NSObject as *const UITableViewCell) };
+            let player_controller = destination.downcast_ref::<PlayerController>().unwrap();
+            let cell = sender.downcast_ref::<UITableViewCell>().unwrap();
 
             // TODO
             dbg!(cell, player_controller);
@@ -390,8 +385,7 @@ impl LibraryController {
     fn save_item(&self, segue: &UIStoryboardSegue) {
         tracing::info!("saveEditItem");
         let edit_controller = unsafe { segue.sourceViewController() };
-        assert!(edit_controller.isKindOfClass(EditController::class()));
-        let edit_controller = unsafe { Retained::cast::<EditController>(edit_controller) };
+        let edit_controller = edit_controller.downcast_ref::<EditController>().unwrap();
         dbg!(edit_controller); // TODO
     }
 
