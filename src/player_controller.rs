@@ -361,7 +361,7 @@ impl PlayerController {
         self.player_lock().flush_shared_objects();
     }
 
-    fn view(&self) -> Retained<PlayerView> {
+    pub fn view(&self) -> Retained<PlayerView> {
         let view = (**self).view().expect("controller loads view");
         view.downcast().expect("must have correct view type")
     }

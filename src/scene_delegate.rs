@@ -59,17 +59,30 @@ define_class!(
         }
 
         #[unsafe(method(sceneDidBecomeActive:))]
-        fn sceneDidBecomeActive(&self, _scene: &UIScene) {
+        fn sceneDidBecomeActive(&self, scene: &UIScene) {
             tracing::info!("sceneDidBecomeActive:");
-            // Called when the scene has moved from an inactive state to an active state.
-            // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
+
+            // Restart playing.
+            let nav = get_navigation_controller(scene);
+            for controller in unsafe { nav.viewControllers() } {
+                if let Some(controller) = controller.downcast_ref::<PlayerController>() {
+                    controller.view().start();
+                }
+            }
         }
 
         #[unsafe(method(sceneWillResignActive:))]
-        fn sceneWillResignActive(&self, _scene: &UIScene) {
+        fn sceneWillResignActive(&self, scene: &UIScene) {
             tracing::info!("sceneWillResignActive:");
-            // Called when the scene will move from an active state to an inactive state.
-            // This may occur due to temporary interruptions (ex. an incoming phone call).
+
+            // Stop playing.
+            // TODO: Is this the best place to do this?
+            let nav = get_navigation_controller(scene);
+            for controller in unsafe { nav.viewControllers() } {
+                if let Some(controller) = controller.downcast_ref::<PlayerController>() {
+                    controller.view().stop();
+                }
+            }
         }
 
         #[unsafe(method(sceneWillEnterForeground:))]
@@ -138,17 +151,18 @@ impl Drop for SceneDelegate {
     }
 }
 
+fn get_navigation_controller(scene: &UIScene) -> Retained<UINavigationController> {
+    let scene = scene.downcast_ref::<UIWindowScene>().unwrap();
+    // FIXME: Assumes single-window
+    let window = unsafe { scene.windows() }.firstObject().unwrap();
+    let root = window.rootViewController().unwrap();
+    root.downcast::<UINavigationController>().unwrap()
+}
+
 fn play_url(scene: &UIScene, url: &NSURL) -> Option<()> {
     let _span = tracing::info_span!("play_url").entered();
 
-    let scene = scene.downcast_ref::<UIWindowScene>()?;
-    tracing::info!(?scene);
-
-    let window = unsafe { scene.windows() }.firstObject()?;
-    let root = window.rootViewController()?;
-    tracing::info!(?root);
-    let nav = root.downcast::<UINavigationController>().ok()?;
-    tracing::info!(?nav);
+    let nav = get_navigation_controller(scene);
 
     // TODO: Investigate if we really want to do this?
     unsafe { nav.popToRootViewControllerAnimated(true) };
