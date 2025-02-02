@@ -55,12 +55,12 @@ impl PollRequester for EventSender {
 #[derive(Default)]
 pub struct Ivars {
     // Populated to be used in `viewDidLoad`.
-    pub content: Cell<Option<PlayingContent>>,
-    pub user_options: Cell<Option<PlayerOptions>>,
-    pub storage_backend: Cell<Option<Box<dyn StorageBackend>>>,
+    content: Cell<Option<PlayingContent>>,
+    user_options: Cell<Option<PlayerOptions>>,
+    storage_backend: Cell<Option<Box<dyn StorageBackend>>>,
 
     /// Used to keep the bundle resource alive while we're using it.
-    pub _scoped_resource: Cell<Option<SecurityScopedResource>>,
+    _scoped_resource: Cell<Option<SecurityScopedResource>>,
 
     player: OnceCell<Arc<Mutex<Player>>>,
     executor: OnceCell<Arc<AsyncExecutor<EventSender>>>,

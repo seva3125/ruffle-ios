@@ -139,7 +139,7 @@
                             <navigationBar contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="xjv-iU-cbf">
                                 <rect key="frame" x="0.0" y="0.0" width="393" height="44"/>
                                 <items>
-                                    <navigationItem title="Edit" id="NBs-uZ-Ytd">
+                                    <navigationItem title="Options" style="editor" id="NBs-uZ-Ytd">
                                         <barButtonItem key="leftBarButtonItem" systemItem="cancel" id="6Jf-Kr-ZXP">
                                             <color key="tintColor" systemColor="systemBlueColor"/>
                                             <connections>
@@ -348,7 +348,6 @@
                     <simulatedNavigationBarMetrics key="simulatedTopBarMetrics" translucent="NO" prompted="NO"/>
                     <modalFormSheetSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
                     <connections>
-                        <outlet property="navigationItem" destination="NBs-uZ-Ytd" id="RDh-C2-AJk"/>
                         <outlet property="tableView" destination="SWr-cC-2fP" id="une-iz-mqO"/>
                     </connections>
                 </viewController>

@@ -1,4 +1,6 @@
-use std::cell::{OnceCell, RefCell};
+use std::cell::OnceCell;
+use std::error::Error;
+use std::time::Duration;
 
 use block2::{Block, RcBlock};
 use objc2::rc::{Allocated, Retained};
@@ -13,26 +15,29 @@ use objc2_ui_kit::{
     UITableViewDataSource, UITableViewDelegate, UITextField, UIViewController,
 };
 use ruffle_core::{LoadBehavior, PlayerRuntime, StageAlign, StageScaleMode};
-use ruffle_frontend_utils::bundle::info::BundleInformation;
 use ruffle_frontend_utils::player_options::PlayerOptions;
 use ruffle_render::quality::StageQuality;
+
+use crate::storage::Movie;
 
 #[derive(Clone, Copy, Debug)]
 enum FormElement {
     Name,
-    Source,
     String {
         label: &'static str,
         text: fn(&PlayerOptions) -> Option<String>,
+        write_if_set: fn(&mut PlayerOptions, &str) -> Result<(), Box<dyn Error>>,
     },
     Select {
         label: &'static str,
         variants: &'static [&'static str],
         enabled_variant: fn(&PlayerOptions) -> Option<&'static str>,
+        write_if_set: fn(&mut PlayerOptions, &str) -> Result<(), Box<dyn Error>>,
     },
     Bool {
         label: &'static str,
         value: fn(&PlayerOptions) -> Option<bool>,
+        write_if_set: fn(&mut PlayerOptions, bool),
     },
 }
 
@@ -40,7 +45,7 @@ enum FormElement {
 // Roughly matches PlayerOptions
 const FORM: &[&[FormElement]] = &[
     // Required
-    &[FormElement::Name, FormElement::Source],
+    &[FormElement::Name],
     // General options
     &[
         FormElement::String {
@@ -49,6 +54,13 @@ const FORM: &[&[FormElement]] = &[
                 options
                     .max_execution_duration
                     .map(|duration| duration.as_secs().to_string())
+            },
+            write_if_set: |options, value| {
+                let value = value
+                    .parse()
+                    .map_err(|err| format!("invalid duration: {err}"))?;
+                options.max_execution_duration = Some(Duration::from_secs(value));
+                Ok(())
             },
         },
         FormElement::Select {
@@ -75,10 +87,31 @@ const FORM: &[&[FormElement]] = &[
                     StageQuality::High16x16Linear => "High (16x16) Linear",
                 })
             },
+            write_if_set: |options, value| {
+                options.quality = Some(match value {
+                    "Low" => StageQuality::Low,
+                    "Medium" => StageQuality::Medium,
+                    "High" => StageQuality::High,
+                    "Best" => StageQuality::Best,
+                    "High (8x8)" => StageQuality::High8x8,
+                    "High (8x8) Linear" => StageQuality::High8x8Linear,
+                    "High (16x16)" => StageQuality::High16x16,
+                    "High (16x16) Linear" => StageQuality::High16x16Linear,
+                    _ => return Err("invalid stage quality".into()),
+                });
+                Ok(())
+            },
         },
         FormElement::String {
             label: "Player version",
             text: |options| options.player_version.map(|version| version.to_string()),
+            write_if_set: |options, value| {
+                let value = value
+                    .parse()
+                    .map_err(|err| format!("invalid player version: {err}"))?;
+                options.player_version = Some(value);
+                Ok(())
+            },
         },
         FormElement::Select {
             label: "Player runtime",
@@ -89,10 +122,25 @@ const FORM: &[&[FormElement]] = &[
                     PlayerRuntime::AIR => "Adobe AIR",
                 })
             },
+            write_if_set: |options, value| {
+                options.player_runtime = Some(match value {
+                    "Flash Player" => PlayerRuntime::FlashPlayer,
+                    "Adobe AIR" => PlayerRuntime::AIR,
+                    _ => return Err("invalid player runtime".into()),
+                });
+                Ok(())
+            },
         },
         FormElement::String {
             label: "Custom framerate (fps)",
             text: |options| options.frame_rate.map(|rate: f64| rate.to_string()),
+            write_if_set: |options, value| {
+                let value = value
+                    .parse()
+                    .map_err(|err| format!("invalid framerate: {err}"))?;
+                options.frame_rate = Some(value);
+                Ok(())
+            },
         },
     ],
     // Stage Alignment
@@ -130,10 +178,26 @@ const FORM: &[&[FormElement]] = &[
                     _ => "Center",
                 })
             },
+            write_if_set: |options, value| {
+                options.align = Some(match value {
+                    "Center" => StageAlign::empty(),
+                    "Top" => StageAlign::TOP,
+                    "Bottom" => StageAlign::BOTTOM,
+                    "Left" => StageAlign::LEFT,
+                    "Right" => StageAlign::RIGHT,
+                    "Top-Left" => StageAlign::TOP.union(StageAlign::LEFT),
+                    "Top-Right" => StageAlign::TOP.union(StageAlign::RIGHT),
+                    "Bottom-Left" => StageAlign::BOTTOM.union(StageAlign::LEFT),
+                    "Bottom-Right" => StageAlign::BOTTOM.union(StageAlign::RIGHT),
+                    _ => return Err("invalid stage".into()),
+                });
+                Ok(())
+            },
         },
         FormElement::Bool {
             label: "Force",
             value: |options| options.force_align,
+            write_if_set: |options, value| options.force_align = Some(value),
         },
     ],
     // Scale mode
@@ -141,15 +205,10 @@ const FORM: &[&[FormElement]] = &[
         FormElement::Select {
             label: "Scale mode",
             variants: &[
-                "Center",
-                "Top",
-                "Bottom",
-                "Left",
-                "Right",
-                "Top-Left",
-                "Top-Right",
-                "Bottom-Left",
-                "Bottom-Right",
+                "Unscaled (100%)",
+                "Zoom to Fit",
+                "Stretch to Fit",
+                "Crop to Fit",
             ],
             enabled_variant: |options| {
                 options.scale.map(|scale| match scale {
@@ -159,10 +218,21 @@ const FORM: &[&[FormElement]] = &[
                     StageScaleMode::NoBorder => "Crop to Fit",
                 })
             },
+            write_if_set: |options, value| {
+                options.scale = Some(match value {
+                    "Unscaled (100%)" => StageScaleMode::NoScale,
+                    "Zoom to Fit" => StageScaleMode::ShowAll,
+                    "Stretch to Fit" => StageScaleMode::ExactFit,
+                    "Crop to Fit" => StageScaleMode::NoBorder,
+                    _ => return Err("invalid scale mode".into()),
+                });
+                Ok(())
+            },
         },
         FormElement::Bool {
             label: "Force",
             value: |options| options.force_scale,
+            write_if_set: |options, value| options.force_scale = Some(value),
         },
     ],
     // Network settings
@@ -170,22 +240,42 @@ const FORM: &[&[FormElement]] = &[
         FormElement::String {
             label: "Custom base URL",
             text: |options| options.base.as_ref().map(|url| url.to_string()),
+            write_if_set: |options, value| {
+                let value = value.parse().map_err(|err| format!("invalid URL: {err}"))?;
+                options.base = Some(value);
+                Ok(())
+            },
         },
         FormElement::String {
             label: "Spoof SWF URL",
             text: |options| options.spoof_url.as_ref().map(|url| url.to_string()),
+            write_if_set: |options, value| {
+                let value = value.parse().map_err(|err| format!("invalid URL: {err}"))?;
+                options.spoof_url = Some(value);
+                Ok(())
+            },
         },
         FormElement::String {
             label: "Referer URL",
             text: |options| options.referer.as_ref().map(|url| url.to_string()),
+            write_if_set: |options, value| {
+                let value = value.parse().map_err(|err| format!("invalid URL: {err}"))?;
+                options.referer = Some(value);
+                Ok(())
+            },
         },
         FormElement::String {
             label: "Cookie",
             text: |options| options.cookie.clone(),
+            write_if_set: |options, value| {
+                options.cookie = Some(value.to_string());
+                Ok(())
+            },
         },
         FormElement::Bool {
             label: "Upgrade HTTP to HTTPS",
             value: |options| options.upgrade_to_https,
+            write_if_set: |options, value| options.upgrade_to_https = Some(value),
         },
         FormElement::Select {
             label: "Load behaviour",
@@ -197,10 +287,20 @@ const FORM: &[&[FormElement]] = &[
                     LoadBehavior::Blocking => "Blocking",
                 })
             },
+            write_if_set: |options, value| {
+                options.load_behavior = Some(match value {
+                    "Streaming" => LoadBehavior::Streaming,
+                    "Delayed" => LoadBehavior::Delayed,
+                    "Blocking" => LoadBehavior::Blocking,
+                    _ => return Err("invalid load behaviour".into()),
+                });
+                Ok(())
+            },
         },
         FormElement::Bool {
             label: "Dummy external interface",
             value: |options| options.dummy_external_interface,
+            write_if_set: |options, value| options.dummy_external_interface = Some(value),
         },
     ],
     // Movie parameters are placed at the end
@@ -209,7 +309,7 @@ const FORM: &[&[FormElement]] = &[
 #[derive(Default, Debug)]
 pub struct Ivars {
     table_view: OnceCell<Retained<UITableView>>,
-    info: RefCell<Option<BundleInformation>>,
+    movie: OnceCell<Retained<Movie>>,
 }
 
 define_class!(
@@ -287,9 +387,8 @@ define_class!(
             section: NSInteger,
         ) -> NSInteger {
             if FORM.len() == section as usize {
-                let info = self.ivars().info.borrow();
-                let options = &info.as_ref().expect("initialized").player;
-                options.parameters.len() as NSInteger + 1
+                let movie = self.ivars().movie.get().unwrap();
+                movie.user_options().parameters.len() as NSInteger + 1
             } else {
                 FORM[section as usize].len() as NSInteger
             }
@@ -316,8 +415,8 @@ define_class!(
 );
 
 impl EditController {
-    pub fn configure(&self, info: BundleInformation) {
-        *self.ivars().info.borrow_mut() = Some(info);
+    pub fn setup_movie(&self, movie: &Movie) {
+        self.ivars().movie.set(movie.retain()).unwrap();
     }
 
     fn view_did_load(&self) {
@@ -342,9 +441,8 @@ impl EditController {
         index_path: &NSIndexPath,
     ) -> Retained<UITableViewCell> {
         let mtm = MainThreadMarker::from(self);
-        let info = self.ivars().info.borrow();
-        let info = info.as_ref().expect("initialized info");
-        let options = &info.player;
+        let movie = self.ivars().movie.get().unwrap();
+        let options = movie.user_options();
         unsafe {
             let section = index_path.section() as usize;
             let row = index_path.row() as usize;
@@ -382,25 +480,10 @@ impl EditController {
                         .objectAtIndex(0)
                         .downcast::<UITextField>()
                         .unwrap();
-                    input.setText(Some(&NSString::from_str(&info.name)));
+                    input.setText(Some(&movie.cachedName()));
                     cell
                 }
-                // TODO
-                FormElement::Source => {
-                    let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
-                        ns_string!("root-name"),
-                        index_path,
-                    );
-                    let input = cell
-                        .contentView()
-                        .subviews()
-                        .objectAtIndex(0)
-                        .downcast::<UITextField>()
-                        .unwrap();
-                    input.setText(Some(&NSString::from_str(&info.url.to_string())));
-                    cell
-                }
-                FormElement::String { label, text } => {
+                FormElement::String { label, text, .. } => {
                     let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
                         ns_string!("string"),
                         index_path,
@@ -418,6 +501,7 @@ impl EditController {
                     label,
                     variants,
                     enabled_variant,
+                    ..
                 } => {
                     let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
                         ns_string!("select"),
@@ -473,7 +557,7 @@ impl EditController {
                     ));
                     cell
                 }
-                FormElement::Bool { label, value } => {
+                FormElement::Bool { label, value, .. } => {
                     let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
                         ns_string!("bool"),
                         index_path,
@@ -497,4 +581,14 @@ impl EditController {
             }
         }
     }
+
+    // fn get_data(&self) -> (Retained<NSString>, PlayerOptions) {
+    //     let table_view = self.ivars().table_view.get().unwrap();
+    //     let path = NSIndexPath::new();
+    //     for (i, section) in FORM.iter().enumerate() {
+    //         let cell = unsafe { table_view.cellForRowAtIndexPath() };
+    //     }
+    //
+    //     // Movie parameters
+    // }
 }

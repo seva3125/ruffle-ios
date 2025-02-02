@@ -21,9 +21,6 @@ use objc2_ui_kit::{UIDocumentPickerMode, UIStoryboardSegue};
 use ruffle_core::tag_utils::SwfMovie;
 use ruffle_core::PlayerBuilder;
 use ruffle_frontend_utils::backends::audio::CpalAudioBackend;
-use ruffle_frontend_utils::bundle::info::BundleInformation;
-use ruffle_frontend_utils::player_options::PlayerOptions;
-use url::Url;
 
 use crate::edit_controller::EditController;
 use crate::storage::Movie;
@@ -390,13 +387,9 @@ impl LibraryController {
             let edit_controller = destination.downcast_ref::<EditController>().unwrap();
             let cell = sender.downcast_ref::<UITableViewCell>().unwrap();
 
-            // TODO
-            edit_controller.configure(BundleInformation {
-                name: "".into(),
-                url: Url::parse("file://").unwrap(),
-                player: PlayerOptions::default(),
-            });
-            dbg!(cell);
+            let index_path = unsafe { self.tableView().unwrap().indexPathForCell(&cell).unwrap() };
+            let movie = unsafe { self.ivars().fetched_movies.objectAtIndexPath(&index_path) };
+            edit_controller.setup_movie(&movie);
         } else if &*identifier == ns_string!("run-item") {
             let player_controller = destination.downcast_ref::<PlayerController>().unwrap();
             let cell = sender.downcast_ref::<UITableViewCell>().unwrap();
