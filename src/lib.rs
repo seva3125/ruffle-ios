@@ -7,7 +7,6 @@ use objc2_ui_kit::UIApplicationMain;
 
 mod add_controller;
 mod app_delegate;
-mod document;
 mod edit_controller;
 mod library_controller;
 mod player_controller;
@@ -50,8 +49,6 @@ pub fn launch(app_class: Option<&AnyClass>, delegate_class: Option<&AnyClass>) {
     let _ = library_controller::LibraryController::class();
     let _ = edit_controller::EditController::class();
     let _ = add_controller::AddController::class();
-    let _ = document::SWFDocument::class();
-    let _ = document::BundleDocument::class();
 
     // This is loaded by CoreData
     let _ = storage::Movie::class();

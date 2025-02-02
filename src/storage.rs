@@ -334,41 +334,51 @@ fn url_to_path(url: &NSURL) -> PathBuf {
     PathBuf::from(path.to_string())
 }
 
-pub fn get_playing_content(nsurl: &NSURL) -> PlayingContent {
-    let s = unsafe { nsurl.absoluteString() }.unwrap().to_string();
-    let url = Url::parse(&s).unwrap();
-
-    if !unsafe { nsurl.isFileURL() } {
+pub fn get_playing_content(url: &NSURL) -> PlayingContent {
+    if !unsafe { url.isFileURL() } {
+        let s = unsafe { url.absoluteString() }.unwrap().to_string();
+        let url = Url::parse(&s).unwrap();
         return PlayingContent::DirectFile(url);
     }
 
     // Ensure we are authorized to read the bundle contents.
-    let _access = SecurityScopedResource::access(nsurl)
+    let _access = SecurityScopedResource::access(url)
         .unwrap_or_else(|| panic!("failed accessing NSURL: {url:?}"));
 
-    match Bundle::from_path(url_to_path(&nsurl)) {
+    match Bundle::from_path(url_to_path(&url)) {
         Ok(bundle) => {
             if bundle.warnings().is_empty() {
-                tracing::info!("opening bundle at {nsurl:?}");
+                tracing::info!("opening bundle at {url:?}");
             } else {
                 // TODO: Show warnings to user (toast?)
-                tracing::warn!("opening bundle at {nsurl:?} with warnings");
+                tracing::warn!("opening bundle at {url:?} with warnings");
                 for warning in bundle.warnings() {
                     tracing::warn!("{warning}");
                 }
             }
-            PlayingContent::Bundle(url, bundle)
+
+            let s = unsafe { url.filePathURL().unwrap().absoluteString().unwrap() }.to_string();
+            PlayingContent::Bundle(Url::parse(&s).unwrap(), bundle)
         }
         Err(BundleError::BundleDoesntExist)
         | Err(BundleError::InvalidSource(BundleSourceError::UnknownSource)) => {
             // Open it as a swf - this likely isn't a bundle at all
-            PlayingContent::DirectFile(url)
+            let s = unsafe { url.filePathURL().unwrap().absoluteString().unwrap() }.to_string();
+            PlayingContent::DirectFile(Url::parse(&s).unwrap())
         }
-        Err(e) => panic!("failed opening bundle {nsurl:?}: {e}"),
+        Err(e) => panic!("failed opening bundle {url:?}: {e}"),
     }
 }
 
 pub fn movie_exists(url: &NSURL) -> bool {
+    // The canonical URL in our DB is a file reference URL.
+    let file_url = unsafe { url.fileReferenceURL() };
+    let url = if unsafe { url.isFileURL() } {
+        file_url.as_deref().unwrap()
+    } else {
+        url
+    };
+
     let movies = unsafe {
         let request: Retained<NSFetchRequest> = msg_send![Movie::class(), fetchRequest];
         container()
@@ -388,6 +398,14 @@ pub fn movie_exists(url: &NSURL) -> bool {
 }
 
 pub fn add_movie(url: &NSURL) {
+    // The canonical URL in our DB is a file reference URL.
+    let file_url = unsafe { url.fileReferenceURL() };
+    let url = if unsafe { url.isFileURL() } {
+        file_url.as_deref().unwrap()
+    } else {
+        url
+    };
+
     let content = get_playing_content(url);
 
     let movie = unsafe { msg_send![Movie::class(), alloc] };

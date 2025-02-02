@@ -25,10 +25,15 @@ use ruffle_frontend_utils::bundle::info::BundleInformation;
 use ruffle_frontend_utils::player_options::PlayerOptions;
 use url::Url;
 
-use crate::document::{RUF_UTI, SWF_UTI};
 use crate::edit_controller::EditController;
 use crate::storage::{Movie, MovieStorageBackend, SecurityScopedResource};
 use crate::{storage, PlayerController, PlayerView};
+
+// There is no standardized UTI for SWFs, so this is one we picked.
+pub const SWF_UTI: &str = "com.adobe.swf";
+
+// Temporary until we publish the package
+pub const RUF_UTI: &str = "com.example.rs.ruffle.bundle";
 
 #[derive(Debug)]
 pub struct Ivars {
@@ -282,7 +287,6 @@ define_class!(
             _controller: &UIDocumentPickerViewController,
             url: &NSURL,
         ) {
-            let url = unsafe { url.fileReferenceURL().unwrap() };
             tracing::info!("completed document picker: {url:?}");
             if !storage::movie_exists(&url) {
                 storage::add_movie(&url);

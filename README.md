@@ -18,6 +18,13 @@ Run the core player on Mac Catalyst with:
 cargo bundle --target=aarch64-apple-ios-macabi --bin run_swf && ./target/aarch64-apple-ios-macabi/debug/bundle/ios/Ruffle.app/run_swf
 ```
 
+The proper application can also be launched from the iOS Simulator by opening [the Xcode project](./ruffle-ios.xcodeproj).
+
+To open an SWF/Ruffle bundle, simply drag and drop the `.swf`/`.ruf` onto the simulator window, see:
+https://developer.apple.com/documentation/xcode/sharing-data-with-simulator
+
+NOTE: The simulator has to have read permissions for the file, you may have to place it outside the `Desktop`/`Documents`/... folders, which require special permission setup.
+
 ## UI
 
 Similar to https://getutm.app/, we should have:

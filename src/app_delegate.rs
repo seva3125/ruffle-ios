@@ -1,9 +1,12 @@
 use objc2::rc::{Allocated, Retained};
+use objc2::runtime::AnyObject;
 use objc2::{define_class, msg_send, MainThreadOnly};
-use objc2_foundation::{ns_string, MainThreadMarker, NSObject, NSObjectProtocol, NSSet};
+use objc2_foundation::{
+    ns_string, MainThreadMarker, NSDictionary, NSObject, NSObjectProtocol, NSSet,
+};
 use objc2_ui_kit::{
-    UIApplication, UIApplicationDelegate, UISceneConfiguration, UISceneConnectionOptions,
-    UISceneSession,
+    UIApplication, UIApplicationDelegate, UIApplicationLaunchOptionsKey, UISceneConfiguration,
+    UISceneConnectionOptions, UISceneSession,
 };
 
 use crate::storage;
@@ -32,10 +35,15 @@ define_class!(
     }
 
     unsafe impl UIApplicationDelegate for AppDelegate {
-        #[unsafe(method(applicationDidFinishLaunching:))]
-        fn did_finish_launching(&self, _application: &UIApplication) {
+        #[unsafe(method(application:didFinishLaunchingWithOptions:))]
+        fn did_finish_launching(
+            &self,
+            _application: &UIApplication,
+            _launch_options: Option<&NSDictionary<UIApplicationLaunchOptionsKey, AnyObject>>,
+        ) -> bool {
             tracing::info!("applicationDidFinishLaunching:");
             storage::setup();
+            true
         }
 
         #[unsafe(method_id(application:configurationForConnectingSceneSession:options:))]

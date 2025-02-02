@@ -17,8 +17,6 @@
 			<string>Owner</string>
 			<key>LSTypeIsPackage</key>
 			<true/>
-			<key>NSDocumentClass</key>
-			<string>BundleDocument</string>
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
@@ -33,8 +31,6 @@
 			<string>Owner</string>
 			<key>LSTypeIsPackage</key>
 			<false/>
-			<key>NSDocumentClass</key>
-			<string>SWFDocument</string>
 		</dict>
 	</array>
 	<key>UIApplicationSceneManifest</key>

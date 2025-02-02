@@ -2,11 +2,13 @@ use std::cell::Cell;
 
 use objc2::rc::{Allocated, Retained};
 use objc2::{define_class, msg_send, DefinedClass as _, Message};
-use objc2_foundation::NSObjectProtocol;
+use objc2_foundation::{NSObjectProtocol, NSSet};
 use objc2_ui_kit::{
-    UIResponder, UIScene, UISceneConnectionOptions, UISceneDelegate, UISceneSession, UIWindow,
-    UIWindowSceneDelegate,
+    UIOpenURLContext, UIResponder, UIScene, UISceneConnectionOptions, UISceneDelegate,
+    UISceneSession, UIWindow, UIWindowSceneDelegate,
 };
+
+use crate::storage;
 
 pub struct Ivars {
     window: Cell<Option<Retained<UIWindow>>>,
@@ -83,6 +85,32 @@ define_class!(
             // Called as the scene transitions from the foreground to the background.
             // Use this method to save data, release shared resources, and store enough scene-specific state information
             // to restore the scene back to its current state.
+        }
+
+        #[unsafe(method(scene:openURLContexts:))]
+        fn scene_openURLContexts(&self, _scene: &UIScene, url_contexts: &NSSet<UIOpenURLContext>) {
+            tracing::info!(?url_contexts, "scene:openURLContexts:");
+
+            for context in url_contexts {
+                let url = unsafe { context.URL() };
+
+                // TODO: Do something else when this is set?
+                let _ = unsafe { context.options().openInPlace() };
+
+                if !storage::movie_exists(&url) {
+                    storage::add_movie(&url);
+                } else {
+                    // This is intentional, when the user opens URLs from outside
+                    // the app, we only want to add them to the library if not
+                    // already there.
+                    tracing::debug!("did not add existing movie {url:?}");
+                }
+            }
+
+            if url_contexts.count() == 1 {
+                let _url_context = url_contexts.anyObject().unwrap();
+                // TODO: Start playing this one immediately
+            }
         }
     }
 
