@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23605" systemVersion="23H222" minimumToolsVersion="Xcode 11.0" sourceLanguage="Objective-C" userDefinedModelVersionIdentifier="">
     <entity name="Movie" representedClassName="Movie" syncable="YES">
+        <attribute name="cachedName" attributeType="String" spotlightIndexingEnabled="YES"/>
         <attribute name="link" attributeType="URI"/>
         <attribute name="userOptions" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
         <relationship name="movieData" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="MovieData" inverseName="movie" inverseEntity="MovieData"/>

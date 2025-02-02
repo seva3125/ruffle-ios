@@ -219,7 +219,7 @@ define_class!(
             url: &NSURL,
         ) {
             tracing::info!("completed document picker: {url:?}");
-            storage::add_movie(url);
+            storage::add_local_movie(url);
         }
     }
 );
@@ -374,28 +374,22 @@ impl LibraryController {
                 index_path,
             );
             let subviews = cell.contentView().subviews();
+            let title = subviews.objectAtIndex(1).downcast::<UILabel>().unwrap();
+            let subtitle = subviews.objectAtIndex(2).downcast::<UILabel>().unwrap();
 
             let movie = self.ivars().fetched_movies.objectAtIndexPath(index_path);
-            let _url = movie.link();
+            let cached_name = movie.cachedName();
+            let url = movie.link();
 
-            // TODO: Cache data here somehow?
-            // if url.startAccessingSecurityScopedResource() {
-            //     BundleInformation::parse(input);
+            title.setText(Some(&cached_name));
 
-            //     url.stopAccessingSecurityScopedResource();
-            // } else {
-
-            let bundle = BundleInformation {
-                name: "Another example".into(),
-                url: Url::parse("file:///example2.swf").unwrap(),
-                player: PlayerOptions::default(),
-            };
-
-            let title = subviews.objectAtIndex(1).downcast::<UILabel>().unwrap();
-            title.setText(Some(&NSString::from_str(&bundle.name)));
-
-            let subtitle = subviews.objectAtIndex(2).downcast::<UILabel>().unwrap();
-            subtitle.setText(Some(&NSString::from_str(&bundle.url.to_string())));
+            if url.isFileURL() {
+                subtitle.setText(Some(
+                    &url.filePathURL().unwrap().lastPathComponent().unwrap(),
+                ));
+            } else {
+                subtitle.setText(Some(&url.absoluteString().unwrap()));
+            }
 
             cell
         }
