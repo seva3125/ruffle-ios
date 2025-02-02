@@ -27,7 +27,7 @@ use url::Url;
 
 use crate::document::{RUF_UTI, SWF_UTI};
 use crate::edit_controller::EditController;
-use crate::storage::{Movie, MovieStorageBackend};
+use crate::storage::{Movie, MovieStorageBackend, SecurityScopedResource};
 use crate::{storage, PlayerController, PlayerView};
 
 #[derive(Debug)]
@@ -376,11 +376,12 @@ impl LibraryController {
 
             let index_path = unsafe { self.tableView().unwrap().indexPathForCell(&cell).unwrap() };
             let movie = unsafe { self.ivars().fetched_movies.objectAtIndexPath(&index_path) };
+            let nsurl = movie.link();
 
             player_controller
                 .ivars()
                 .content
-                .set(Some(storage::get_playing_content(&movie.link())));
+                .set(Some(storage::get_playing_content(&nsurl)));
             player_controller
                 .ivars()
                 .user_options
@@ -389,6 +390,14 @@ impl LibraryController {
                 .ivars()
                 .storage_backend
                 .set(Some(Box::new(MovieStorageBackend { movie })));
+            player_controller
+                .ivars()
+                ._scoped_resource
+                .set(if unsafe { nsurl.isFileURL() } {
+                    Some(SecurityScopedResource::access(&nsurl).expect("failed accessing NSURL"))
+                } else {
+                    None
+                });
         } else {
             unreachable!("unknown identifier for segue: {identifier:?}")
         }

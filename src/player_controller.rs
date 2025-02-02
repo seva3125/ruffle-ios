@@ -27,6 +27,7 @@ use ruffle_render::quality::StageQuality;
 use url::Url;
 
 use crate::player_view::PlayerView;
+use crate::storage::SecurityScopedResource;
 
 #[derive(Clone, Debug)]
 pub struct EventSender {
@@ -38,6 +39,7 @@ impl PollRequester for EventSender {
     fn request_poll(&self) {
         tracing::info!("request_poll");
         if let Some(executor) = self.executor.get().expect("initialized").upgrade() {
+            // Schedule poll at a later point to avoid deadlock
             unsafe {
                 self.main_run_loop.performBlock(&RcBlock::new(move || {
                     tracing::info!("polling");
@@ -57,6 +59,9 @@ pub struct Ivars {
     pub user_options: Cell<Option<PlayerOptions>>,
     pub storage_backend: Cell<Option<Box<dyn StorageBackend>>>,
 
+    /// Used to keep the bundle resource alive while we're using it.
+    pub _scoped_resource: Cell<Option<SecurityScopedResource>>,
+
     player: OnceCell<Arc<Mutex<Player>>>,
     executor: OnceCell<Arc<AsyncExecutor<EventSender>>>,
 }
@@ -74,7 +79,7 @@ impl NavigatorInterface for Navigator {
     fn navigate_to_website(&self, _url: Url) {}
 
     async fn open_file(&self, path: &Path) -> io::Result<File> {
-        eprintln!("trying to open: {path:?}");
+        tracing::info!("trying to open: {path:?}");
         File::open(path)
     }
 
@@ -177,6 +182,7 @@ define_class!(
 );
 
 impl PlayerController {
+    /// For use by run_swf.rs
     pub fn new(
         mtm: MainThreadMarker,
         content: PlayingContent,
@@ -186,6 +192,8 @@ impl PlayerController {
             content: Cell::new(Some(content)),
             user_options: Cell::new(Some(options)),
             storage_backend: Cell::new(None),
+            // run_swf.rs doesn't need security scoping.
+            _scoped_resource: Cell::new(None),
             player: OnceCell::new(),
             executor: OnceCell::new(),
         });

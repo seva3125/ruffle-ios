@@ -312,7 +312,7 @@ pub struct SecurityScopedResource {
 }
 
 impl SecurityScopedResource {
-    fn access(url: &NSURL) -> Option<Self> {
+    pub fn access(url: &NSURL) -> Option<Self> {
         if unsafe { url.startAccessingSecurityScopedResource() } {
             Some(Self { url: url.retain() })
         } else {
