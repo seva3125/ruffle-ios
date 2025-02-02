@@ -281,7 +281,12 @@ define_class!(
             url: &NSURL,
         ) {
             tracing::info!("completed document picker: {url:?}");
-            storage::add_movie(url);
+            if !storage::movie_exists(url) {
+                storage::add_movie(url);
+            } else {
+                // TODO: Give the user an option here?
+                tracing::error!("did not add existing movie {url:?}");
+            }
         }
     }
 );

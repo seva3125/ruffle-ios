@@ -35,7 +35,8 @@ use objc2_core_data::{
     NSPersistentContainer, NSPersistentStoreDescription,
 };
 use objc2_foundation::{
-    ns_string, NSArray, NSData, NSError, NSSet, NSSortDescriptor, NSString, NSURL,
+    ns_string, NSArray, NSData, NSError, NSObject, NSObjectProtocol, NSSet, NSSortDescriptor,
+    NSString, NSURL,
 };
 use ruffle_core::backend::storage::StorageBackend;
 use ruffle_frontend_utils::bundle::source::BundleSourceError;
@@ -365,6 +366,25 @@ pub fn get_playing_content(nsurl: &NSURL) -> PlayingContent {
         }
         Err(e) => panic!("failed opening bundle {nsurl:?}: {e}"),
     }
+}
+
+pub fn movie_exists(url: &NSURL) -> bool {
+    let movies = unsafe {
+        let request: Retained<NSFetchRequest> = msg_send![Movie::class(), fetchRequest];
+        container()
+            .viewContext()
+            .executeFetchRequest_error(&request)
+    }
+    .unwrap_or_else(|err| panic!("failed loading movies: {err}"));
+    for movie in movies {
+        let movie = movie.downcast::<NSObject>().unwrap();
+        assert!(movie.isKindOfClass(Movie::class()));
+        let movie = unsafe { Retained::cast_unchecked::<Movie>(movie) };
+        if &*movie.link() == url {
+            return true;
+        }
+    }
+    false
 }
 
 pub fn add_movie(url: &NSURL) {
