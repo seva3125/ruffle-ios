@@ -432,6 +432,15 @@ pub fn add_movie(url: &NSURL) {
     })
 }
 
+pub fn delete_movie(movie: &Movie) {
+    unsafe { container().viewContext().deleteObject(movie) };
+
+    // Flush changes to disk.
+    unsafe { container().viewContext().save() }.unwrap_or_else(|err| {
+        eprintln!("failed removing movie {:?}: {err}", movie.link());
+    })
+}
+
 pub fn all_movies() -> Retained<NSFetchedResultsController<Movie>> {
     unsafe {
         let fetch_request = Movie::fetchRequest();

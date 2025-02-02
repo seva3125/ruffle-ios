@@ -88,16 +88,19 @@ define_class!(
         #[unsafe(method(sceneWillEnterForeground:))]
         fn sceneWillEnterForeground(&self, _scene: &UIScene) {
             tracing::info!("sceneWillEnterForegrounds:");
-            // Called as the scene transitions from the background to the foreground.
-            // Use this method to undo the changes made on entering the background.
         }
 
         #[unsafe(method(sceneDidEnterBackground:))]
-        fn sceneDidEnterBackground(&self, _scene: &UIScene) {
+        fn sceneDidEnterBackground(&self, scene: &UIScene) {
             tracing::info!("sceneDidEnterBackground:");
-            // Called as the scene transitions from the foreground to the background.
-            // Use this method to save data, release shared resources, and store enough scene-specific state information
-            // to restore the scene back to its current state.
+
+            // Flush when going to the background.
+            let nav = get_navigation_controller(scene);
+            for controller in unsafe { nav.viewControllers() } {
+                if let Some(controller) = controller.downcast_ref::<PlayerController>() {
+                    controller.view().flush();
+                }
+            }
         }
 
         #[unsafe(method(scene:openURLContexts:))]

@@ -342,6 +342,10 @@ impl PlayerView {
         unsafe { self.timer().setFireDate(&NSDate::distantFuture()) };
     }
 
+    pub fn flush(&self) {
+        self.player_lock().flush_shared_objects();
+    }
+
     fn timer_fire(&self) {
         let last_frame_time = self
             .ivars()

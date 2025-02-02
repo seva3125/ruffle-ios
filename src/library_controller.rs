@@ -13,8 +13,8 @@ use objc2_foundation::{
 };
 use objc2_ui_kit::{
     NSDataAsset, UIBarButtonItem, UIDocumentPickerDelegate, UIDocumentPickerViewController,
-    UILabel, UITableView, UITableViewCell, UITableViewController, UITableViewDataSource,
-    UITableViewRowAnimation,
+    UILabel, UITableView, UITableViewCell, UITableViewCellEditingStyle, UITableViewController,
+    UITableViewDataSource, UITableViewRowAnimation,
 };
 #[allow(deprecated)]
 use objc2_ui_kit::{UIDocumentPickerMode, UIStoryboardSegue};
@@ -213,6 +213,21 @@ define_class!(
         ) -> Option<Retained<NSString>> {
             Some(NSString::from_str("Library"))
         }
+
+        #[unsafe(method(tableView:commitEditingStyle:forRowAtIndexPath:))]
+        fn tableView_commitEditingStyle_forRowAtIndexPath(
+            &self,
+            _table_view: &UITableView,
+            editing_style: UITableViewCellEditingStyle,
+            index_path: &NSIndexPath,
+        ) {
+            if editing_style == UITableViewCellEditingStyle::Delete {
+                let movie = unsafe { self.ivars().fetched_movies.objectAtIndexPath(&index_path) };
+                storage::delete_movie(&movie);
+            }
+        }
+
+        // TODO: Implement moving (requires keeping the order in CoreData).
     }
 
     // For usage, see:

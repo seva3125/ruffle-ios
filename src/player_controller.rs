@@ -358,7 +358,7 @@ impl PlayerController {
     fn view_did_disappear(&self, _animated: bool) {
         tracing::info!("player viewDidDisappear:");
 
-        self.player_lock().flush_shared_objects();
+        self.view().flush();
     }
 
     pub fn view(&self) -> Retained<PlayerView> {
@@ -367,7 +367,7 @@ impl PlayerController {
     }
 
     #[track_caller]
-    fn player_lock(&self) -> MutexGuard<'_, Player> {
+    pub fn player_lock(&self) -> MutexGuard<'_, Player> {
         self.ivars()
             .player
             .get()
