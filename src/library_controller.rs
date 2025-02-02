@@ -280,9 +280,10 @@ define_class!(
             _controller: &UIDocumentPickerViewController,
             url: &NSURL,
         ) {
+            let url = unsafe { url.fileReferenceURL().unwrap() };
             tracing::info!("completed document picker: {url:?}");
-            if !storage::movie_exists(url) {
-                storage::add_movie(url);
+            if !storage::movie_exists(&url) {
+                storage::add_movie(&url);
             } else {
                 // TODO: Give the user an option here?
                 tracing::error!("did not add existing movie {url:?}");
