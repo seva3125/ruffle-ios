@@ -4,7 +4,8 @@ use objc2::rc::{Allocated, Retained};
 use objc2::runtime::{AnyObject, ProtocolObject};
 use objc2::{define_class, msg_send, AllocAnyThread, ClassType, DefinedClass as _, Message};
 use objc2_core_data::{
-    NSFetchedResultsController, NSFetchedResultsControllerDelegate, NSFetchedResultsSectionInfo,
+    NSFetchedResultsChangeType, NSFetchedResultsController, NSFetchedResultsControllerDelegate,
+    NSFetchedResultsSectionInfo,
 };
 use objc2_foundation::{
     ns_string, MainThreadMarker, NSArray, NSBundle, NSCoder, NSIndexPath, NSInteger, NSObject,
@@ -13,6 +14,7 @@ use objc2_foundation::{
 use objc2_ui_kit::{
     NSDataAsset, UIBarButtonItem, UIDocumentPickerDelegate, UIDocumentPickerViewController,
     UILabel, UITableView, UITableViewCell, UITableViewController, UITableViewDataSource,
+    UITableViewRowAnimation,
 };
 #[allow(deprecated)]
 use objc2_ui_kit::{UIDocumentPickerMode, UIStoryboardSegue};
@@ -189,7 +191,14 @@ define_class!(
             table_view: &UITableView,
             index_path: &NSIndexPath,
         ) -> Retained<UITableViewCell> {
-            self.cell_at(table_view, index_path)
+            let cell = unsafe {
+                table_view.dequeueReusableCellWithIdentifier_forIndexPath(
+                    ns_string!("library-item"),
+                    index_path,
+                )
+            };
+            self.configure_cell(&cell, index_path);
+            cell
         }
 
         #[unsafe(method_id(tableView:titleForHeaderInSection:))]
@@ -203,7 +212,61 @@ define_class!(
     }
 
     #[allow(non_snake_case)]
-    unsafe impl NSFetchedResultsControllerDelegate for LibraryController {}
+    unsafe impl NSFetchedResultsControllerDelegate for LibraryController {
+        #[unsafe(method(controllerWillChangeContent:))]
+        fn controllerWillChangeContent(&self, _controller: &NSFetchedResultsController) {
+            unsafe { self.tableView().unwrap().beginUpdates() };
+        }
+
+        #[unsafe(method(controller:didChangeObject:atIndexPath:forChangeType:newIndexPath:))]
+        fn controller_didChangeObject_atIndexPath_forChangeType_newIndexPath(
+            &self,
+            _controller: &NSFetchedResultsController,
+            _an_object: &AnyObject,
+            index_path: Option<&NSIndexPath>,
+            r#type: NSFetchedResultsChangeType,
+            new_index_path: Option<&NSIndexPath>,
+        ) {
+            unsafe {
+                let table_view = self.tableView().unwrap();
+
+                match r#type {
+                    NSFetchedResultsChangeType::Insert => table_view
+                        .insertRowsAtIndexPaths_withRowAnimation(
+                            &NSArray::from_slice(&[new_index_path.unwrap()]),
+                            UITableViewRowAnimation::Automatic,
+                        ),
+                    NSFetchedResultsChangeType::Delete => table_view
+                        .deleteRowsAtIndexPaths_withRowAnimation(
+                            &NSArray::from_slice(&[index_path.unwrap()]),
+                            UITableViewRowAnimation::Automatic,
+                        ),
+                    NSFetchedResultsChangeType::Update => self.configure_cell(
+                        &table_view
+                            .cellForRowAtIndexPath(index_path.unwrap())
+                            .unwrap(),
+                        index_path.unwrap(),
+                    ),
+                    NSFetchedResultsChangeType::Move => {
+                        table_view.deleteRowsAtIndexPaths_withRowAnimation(
+                            &NSArray::from_slice(&[index_path.unwrap()]),
+                            UITableViewRowAnimation::Automatic,
+                        );
+                        table_view.insertRowsAtIndexPaths_withRowAnimation(
+                            &NSArray::from_slice(&[new_index_path.unwrap()]),
+                            UITableViewRowAnimation::Automatic,
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        #[unsafe(method(controllerDidChangeContent:))]
+        fn controllerDidChangeContent(&self, _controller: &NSFetchedResultsController) {
+            unsafe { self.tableView().unwrap().endUpdates() };
+        }
+    }
 
     #[allow(non_snake_case)]
     unsafe impl UIDocumentPickerDelegate for LibraryController {
@@ -363,16 +426,8 @@ impl LibraryController {
         }
     }
 
-    fn cell_at(
-        &self,
-        table_view: &UITableView,
-        index_path: &NSIndexPath,
-    ) -> Retained<UITableViewCell> {
+    fn configure_cell(&self, cell: &UITableViewCell, index_path: &NSIndexPath) {
         unsafe {
-            let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
-                ns_string!("library-item"),
-                index_path,
-            );
             let subviews = cell.contentView().subviews();
             let title = subviews.objectAtIndex(1).downcast::<UILabel>().unwrap();
             let subtitle = subviews.objectAtIndex(2).downcast::<UILabel>().unwrap();
@@ -390,8 +445,6 @@ impl LibraryController {
             } else {
                 subtitle.setText(Some(&url.absoluteString().unwrap()));
             }
-
-            cell
         }
     }
 }

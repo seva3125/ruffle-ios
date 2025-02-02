@@ -366,11 +366,14 @@ pub fn all_movies() -> Retained<NSFetchedResultsController<Movie>> {
     unsafe {
         let fetch_request = Movie::fetchRequest();
 
+        let cached_name_descriptor =
+            NSSortDescriptor::sortDescriptorWithKey_ascending(Some(ns_string!("cachedName")), true);
         let link_descriptor = NSSortDescriptor::sortDescriptorWithKey_ascending(
             Some(ns_string!("link.lastPathComponent")),
             true,
         );
-        let sort_descriptors = NSArray::from_retained_slice(&[link_descriptor]);
+        let sort_descriptors =
+            NSArray::from_retained_slice(&[cached_name_descriptor, link_descriptor]);
         fetch_request.setSortDescriptors(Some(&sort_descriptors));
 
         NSFetchedResultsController::initWithFetchRequest_managedObjectContext_sectionNameKeyPath_cacheName(
