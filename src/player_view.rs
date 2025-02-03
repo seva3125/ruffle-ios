@@ -353,13 +353,13 @@ impl PlayerView {
             .get()
             .expect("initialized last frame time");
         let new_time = Instant::now();
-        let dt = new_time.duration_since(last_frame_time).as_micros();
+        let dt = new_time.duration_since(last_frame_time).as_nanos();
         self.ivars().last_frame_time.set(Some(new_time));
-        tracing::trace!("timer fire: {:?}", dt as f64 / 1000000.0);
+        tracing::trace!("timer fire: {:?}", dt as f64 / 1_000_000.0);
 
         let mut player_lock = self.player_lock();
 
-        player_lock.tick(dt as f64 / 1000.0);
+        player_lock.tick(dt as f64 / 1_000_000.0);
         // FIXME: The instant that `time_til_next_frame` is relative to isn't
         // defined, so we have to assume that it's roughly relative to "now".
         let next_fire = unsafe {
