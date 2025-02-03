@@ -1,12 +1,5 @@
 # Modified from https://gitlab.com/kornelski/cargo-xcode/-/blob/9b1679b950d16f42eb14fb8446ae1a80e2c867d2/src/xcodebuild.sh
 
-# Nix
-if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
-  source '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
-fi
-# End Nix
-
-
 set -euo pipefail;
 export PATH="$HOME/.cargo/bin:$PATH:/usr/local/bin:/opt/homebrew/bin";
 # don't use ios/watchos linker for build scripts and proc macros
