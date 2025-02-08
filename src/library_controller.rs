@@ -300,7 +300,7 @@ define_class!(
             url: &NSURL,
         ) {
             tracing::info!("completed document picker: {url:?}");
-            if !storage::movie_from_url(&url).is_none() {
+            if storage::movie_from_url(&url).is_none() {
                 storage::add_movie(&url);
             } else {
                 // TODO: Give the user an option here?

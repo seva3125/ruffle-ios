@@ -98,6 +98,8 @@ impl Movie {
         /// Reference/bookmark to a Ruffle Bundle or SWF.
         /// - Either a bookmarked link to the actual bundle/SWF stored on user's device.
         /// - Or http/https link to externally stored bundle/SWF.
+        ///
+        /// TODO: Store bookmark data internally.
         #[unsafe(method(link))]
         pub fn link(&self) -> Retained<NSURL>;
 
