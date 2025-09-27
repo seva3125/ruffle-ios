@@ -454,9 +454,14 @@ impl LibraryController {
             title.setText(Some(&cached_name));
 
             if url.isFileURL() {
-                subtitle.setText(Some(
-                    &url.filePathURL().unwrap().lastPathComponent().unwrap(),
-                ));
+                if let Some(_access) = storage::SecurityScopedResource::access(&url) {
+                    dbg!(&url, url.filePathURL());
+                    subtitle.setText(Some(
+                        &url.filePathURL().unwrap().lastPathComponent().unwrap(),
+                    ));
+                } else {
+                    subtitle.setText(Some(ns_string!("Unknown")));
+                }
             } else {
                 subtitle.setText(Some(&url.absoluteString().unwrap()));
             }
