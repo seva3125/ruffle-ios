@@ -62,6 +62,9 @@ identifier = "rs.ruffle.ios-dev"
 # flv-rs = { path = "../ruffle/flv" }
 
 [patch.crates-io]
+# Fix broken Mac Catalyst.
+cc = { git = "https://github.com/madsmtm/cc-rs.git", branch = "macabi" }
+
 # visionOS support
 # wgpu = { path = "../wgpu/wgpu" }
 # naga = { path = "../wgpu/naga" }

@@ -372,10 +372,10 @@ checksum = "325918d6fe32f23b19878fe4b34794ae41fc19ddbe53b10571a4874d44ffd39b"
 
 [[package]]
 name = "cc"
-version = "1.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4730490333d58093109dc02c23174c3f4d490998c3fed3cc8e82d57afedb9cf"
+version = "1.2.39"
+source = "git+https://github.com/madsmtm/cc-rs.git?branch=macabi#87c0aa1ec4295372c09cb13a6d0e4cc96ba57bac"
 dependencies = [
+ "find-msvc-tools",
  "jobserver",
  "libc",
  "shlex",
@@ -1024,6 +1024,11 @@ checksum = "1e6853b52649d4ac5c0bd02320cddc5ba956bdb407c4b75a2c6b75bf51500f8c"
 dependencies = [
  "simd-adler32",
 ]
+
+[[package]]
+name = "find-msvc-tools"
+version = "0.1.2"
+source = "git+https://github.com/madsmtm/cc-rs.git?branch=macabi#87c0aa1ec4295372c09cb13a6d0e4cc96ba57bac"
 
 [[package]]
 name = "flash-lso"
