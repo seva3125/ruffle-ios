@@ -1,25 +1,25 @@
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::AnyObject;
-use objc2::{define_class, msg_send, MainThreadOnly};
+use objc2::{define_class, msg_send, DefinedClass, MainThreadOnly, Message};
 use objc2_foundation::{
     ns_string, MainThreadMarker, NSDictionary, NSObject, NSObjectProtocol, NSSet,
 };
 use objc2_ui_kit::{
     UIApplication, UIApplicationDelegate, UIApplicationLaunchOptionsKey, UISceneConfiguration,
-    UISceneConnectionOptions, UISceneSession,
+    UISceneConnectionOptions, UISceneSession, UIWindow,
 };
 
 use crate::storage;
 
-#[derive(Debug)]
-pub struct Ivars {}
+pub struct Ivars {
+    window: std::cell::Cell<Option<Retained<UIWindow>>>,
+}
 
 define_class!(
     #[unsafe(super(NSObject))]
     #[name = "AppDelegate"]
     #[thread_kind = MainThreadOnly]
     #[ivars = Ivars]
-    #[derive(Debug)]
     pub struct AppDelegate;
 
     unsafe impl NSObjectProtocol for AppDelegate {}
@@ -29,14 +29,30 @@ define_class!(
         // Called by UIKitApplicationMain
         #[unsafe(method_id(init))]
         fn init(this: Allocated<Self>) -> Retained<Self> {
-            let this = this.set_ivars(Ivars {});
+            let this = this.set_ivars(Ivars {
+                window: std::cell::Cell::new(None),
+            });
             unsafe { msg_send![super(this), init] }
         }
     }
 
+    #[allow(non_snake_case)]
     unsafe impl UIApplicationDelegate for AppDelegate {
+        // NOTE: Probably only called by storyboards?
+        #[unsafe(method_id(window))]
+        fn window(&self) -> Option<Retained<UIWindow>> {
+            let window = self.ivars().window.take();
+            self.ivars().window.set(window.clone());
+            window
+        }
+
+        #[unsafe(method(setWindow:))]
+        fn setWindow(&self, window: Option<&UIWindow>) {
+            self.ivars().window.set(window.map(|w| w.retain()));
+        }
+
         #[unsafe(method(application:didFinishLaunchingWithOptions:))]
-        fn did_finish_launching(
+        fn didFinishLaunching(
             &self,
             _application: &UIApplication,
             _launch_options: Option<&NSDictionary<UIApplicationLaunchOptionsKey, AnyObject>>,
@@ -44,6 +60,26 @@ define_class!(
             tracing::info!("applicationDidFinishLaunching:");
             storage::setup();
             true
+        }
+
+        #[unsafe(method(applicationWillEnterForeground:))]
+        fn applicationWillEnterForeground(&self, _application: &UIApplication) {
+            tracing::info!("applicationWillEnterForeground:");
+        }
+
+        #[unsafe(method(applicationDidBecomeActive:))]
+        fn applicationDidBecomeActive(&self, _application: &UIApplication) {
+            tracing::info!("applicationDidBecomeActive:");
+        }
+
+        #[unsafe(method(applicationWillResignActive:))]
+        fn applicationWillResignActive(&self, _application: &UIApplication) {
+            tracing::info!("applicationWillResignActive:");
+        }
+
+        #[unsafe(method(applicationDidEnterBackground:))]
+        fn applicationDidEnterBackground(&self, _application: &UIApplication) {
+            tracing::info!("applicationDidEnterBackground:");
         }
 
         #[unsafe(method_id(application:configurationForConnectingSceneSession:options:))]
