@@ -164,7 +164,7 @@ define_class!(
         #[unsafe(method(becomeFirstResponder))]
         fn becomeFirstResponder(&self) -> bool {
             tracing::info!("player controller becomeFirstResponder");
-            unsafe { self.view().becomeFirstResponder() };
+            self.view().becomeFirstResponder();
             true
         }
 
@@ -220,13 +220,11 @@ impl PlayerController {
             .set(Some(Box::new(storage::MovieStorageBackend {
                 movie: movie.retain(),
             })));
-        self.ivars()
-            ._scoped_resource
-            .set(if unsafe { nsurl.isFileURL() } {
-                Some(SecurityScopedResource::access(&nsurl).expect("failed accessing NSURL"))
-            } else {
-                None
-            });
+        self.ivars()._scoped_resource.set(if nsurl.isFileURL() {
+            Some(SecurityScopedResource::access(&nsurl).expect("failed accessing NSURL"))
+        } else {
+            None
+        });
     }
 
     fn load_view(&self) {
@@ -248,7 +246,7 @@ impl PlayerController {
 
         let sender = EventSender {
             executor: Rc::new(OnceCell::new()),
-            main_run_loop: unsafe { NSRunLoop::mainRunLoop() },
+            main_run_loop: NSRunLoop::mainRunLoop(),
         };
         let (executor, future_spawner) = AsyncExecutor::new(sender.clone());
         sender.executor.set(Arc::downgrade(&executor)).unwrap();

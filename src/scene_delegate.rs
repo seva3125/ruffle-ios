@@ -64,7 +64,7 @@ define_class!(
 
             // Restart playing.
             let nav = get_navigation_controller(scene);
-            for controller in unsafe { nav.viewControllers() } {
+            for controller in nav.viewControllers() {
                 if let Some(controller) = controller.downcast_ref::<PlayerController>() {
                     controller.view().start();
                 }
@@ -78,7 +78,7 @@ define_class!(
             // Stop playing.
             // TODO: Is this the best place to do this?
             let nav = get_navigation_controller(scene);
-            for controller in unsafe { nav.viewControllers() } {
+            for controller in nav.viewControllers() {
                 if let Some(controller) = controller.downcast_ref::<PlayerController>() {
                     controller.view().stop();
                 }
@@ -96,7 +96,7 @@ define_class!(
 
             // Flush when going to the background.
             let nav = get_navigation_controller(scene);
-            for controller in unsafe { nav.viewControllers() } {
+            for controller in nav.viewControllers() {
                 if let Some(controller) = controller.downcast_ref::<PlayerController>() {
                     controller.view().flush();
                 }
@@ -108,10 +108,10 @@ define_class!(
             tracing::info!(?url_contexts, "scene:openURLContexts:");
 
             for context in url_contexts {
-                let url = unsafe { context.URL() };
+                let url = context.URL();
 
                 // TODO: Do something else when this is set?
-                let _ = unsafe { context.options().openInPlace() };
+                let _ = context.options().openInPlace();
 
                 if storage::movie_from_url(&url).is_none() {
                     storage::add_movie(&url);
@@ -125,7 +125,7 @@ define_class!(
 
             if url_contexts.count() == 1 {
                 let context = url_contexts.anyObject().unwrap();
-                let url = unsafe { context.URL() };
+                let url = context.URL();
                 // Start playing this one immediately
                 play_url(scene, &url);
             }
@@ -157,7 +157,7 @@ impl Drop for SceneDelegate {
 fn get_navigation_controller(scene: &UIScene) -> Retained<UINavigationController> {
     let scene = scene.downcast_ref::<UIWindowScene>().unwrap();
     // FIXME: Assumes single-window
-    let window = unsafe { scene.windows() }.firstObject().unwrap();
+    let window = scene.windows().firstObject().unwrap();
     let root = window.rootViewController().unwrap();
     root.downcast::<UINavigationController>().unwrap()
 }
@@ -168,12 +168,12 @@ fn play_url(scene: &UIScene, url: &NSURL) -> Option<()> {
     let nav = get_navigation_controller(scene);
 
     // TODO: Investigate if we really want to do this?
-    unsafe { nav.popToRootViewControllerAnimated(true) };
+    nav.popToRootViewControllerAnimated(true);
 
     let movie = storage::movie_from_url(url).expect("we just added the movie");
     let player_controller = PlayerController::empty(scene.mtm());
     player_controller.setup_movie(&movie);
-    unsafe { nav.pushViewController_animated(&player_controller, true) };
+    nav.pushViewController_animated(&player_controller, true);
 
     Some(())
 }

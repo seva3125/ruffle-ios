@@ -29,10 +29,10 @@ use block2::RcBlock;
 use objc2::encode::{Encoding, RefEncode};
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::{AnyClass, ClassBuilder};
-use objc2::{extern_methods, msg_send, AllocAnyThread, ClassType, Message};
+use objc2::{extern_conformance, extern_methods, msg_send, AllocAnyThread, ClassType, Message};
 use objc2_core_data::{
-    NSFetchRequest, NSFetchedResultsController, NSManagedObject, NSManagedObjectContext,
-    NSPersistentContainer, NSPersistentStoreDescription,
+    NSFetchRequest, NSFetchRequestResult, NSFetchedResultsController, NSManagedObject,
+    NSManagedObjectContext, NSPersistentContainer, NSPersistentStoreDescription,
 };
 use objc2_foundation::{
     ns_string, NSArray, NSData, NSError, NSObject, NSObjectProtocol, NSSet, NSSortDescriptor,
@@ -65,6 +65,16 @@ impl Deref for Movie {
         &self.superclass
     }
 }
+
+extern_conformance!(
+    // HACK
+    unsafe impl NSObjectProtocol for Movie {}
+);
+
+extern_conformance!(
+    // HACK
+    unsafe impl NSFetchRequestResult for Movie {}
+);
 
 impl Movie {
     pub fn class() -> &'static AnyClass {
@@ -332,13 +342,13 @@ impl Drop for SecurityScopedResource {
 
 fn url_to_path(url: &NSURL) -> PathBuf {
     // TODO: Use fileSystemRepresentation?
-    let path = unsafe { url.filePathURL().unwrap().path().unwrap() };
+    let path = url.filePathURL().unwrap().path().unwrap();
     PathBuf::from(path.to_string())
 }
 
 pub fn get_playing_content(url: &NSURL) -> PlayingContent {
-    if !unsafe { url.isFileURL() } {
-        let s = unsafe { url.absoluteString() }.unwrap().to_string();
+    if !url.isFileURL() {
+        let s = url.absoluteString().unwrap().to_string();
         let url = Url::parse(&s).unwrap();
         return PlayingContent::DirectFile(url);
     }
@@ -359,13 +369,23 @@ pub fn get_playing_content(url: &NSURL) -> PlayingContent {
                 }
             }
 
-            let s = unsafe { url.filePathURL().unwrap().absoluteString().unwrap() }.to_string();
+            let s = url
+                .filePathURL()
+                .unwrap()
+                .absoluteString()
+                .unwrap()
+                .to_string();
             PlayingContent::Bundle(Url::parse(&s).unwrap(), Box::new(bundle))
         }
         Err(BundleError::BundleDoesntExist)
         | Err(BundleError::InvalidSource(BundleSourceError::UnknownSource)) => {
             // Open it as a swf - this likely isn't a bundle at all
-            let s = unsafe { url.filePathURL().unwrap().absoluteString().unwrap() }.to_string();
+            let s = url
+                .filePathURL()
+                .unwrap()
+                .absoluteString()
+                .unwrap()
+                .to_string();
             PlayingContent::DirectFile(Url::parse(&s).unwrap())
         }
         Err(e) => panic!("failed opening bundle {url:?}: {e}"),
@@ -375,15 +395,15 @@ pub fn get_playing_content(url: &NSURL) -> PlayingContent {
 /// The returned movie should only be relied upon in `scene_delegate::play_url`.
 pub fn movie_from_url(url: &NSURL) -> Option<Retained<Movie>> {
     // The canonical URL in our DB is a file reference URL.
-    let file_url = unsafe { url.fileReferenceURL() };
-    let url = if unsafe { url.isFileURL() } {
+    let file_url = url.fileReferenceURL();
+    let url = if url.isFileURL() {
         file_url.as_deref().unwrap()
     } else {
         url
     };
 
+    let request: Retained<NSFetchRequest> = unsafe { msg_send![Movie::class(), fetchRequest] };
     let movies = unsafe {
-        let request: Retained<NSFetchRequest> = msg_send![Movie::class(), fetchRequest];
         container()
             .viewContext()
             .executeFetchRequest_error(&request)
@@ -402,8 +422,8 @@ pub fn movie_from_url(url: &NSURL) -> Option<Retained<Movie>> {
 
 pub fn add_movie(url: &NSURL) {
     // The canonical URL in our DB is a file reference URL.
-    let file_url = unsafe { url.fileReferenceURL() };
-    let url = if unsafe { url.isFileURL() } {
+    let file_url = url.fileReferenceURL();
+    let url = if url.isFileURL() {
         file_url.as_deref().unwrap()
     } else {
         url
@@ -444,19 +464,18 @@ pub fn delete_movie(movie: &Movie) {
 }
 
 pub fn all_movies() -> Retained<NSFetchedResultsController<Movie>> {
+    let fetch_request = Movie::fetchRequest();
+
+    let cached_name_descriptor =
+        NSSortDescriptor::sortDescriptorWithKey_ascending(Some(ns_string!("cachedName")), true);
+    let link_descriptor = NSSortDescriptor::sortDescriptorWithKey_ascending(
+        Some(ns_string!("link.lastPathComponent")),
+        true,
+    );
+    let sort_descriptors = NSArray::from_retained_slice(&[cached_name_descriptor, link_descriptor]);
+    unsafe { fetch_request.setSortDescriptors(Some(&sort_descriptors)) };
+
     unsafe {
-        let fetch_request = Movie::fetchRequest();
-
-        let cached_name_descriptor =
-            NSSortDescriptor::sortDescriptorWithKey_ascending(Some(ns_string!("cachedName")), true);
-        let link_descriptor = NSSortDescriptor::sortDescriptorWithKey_ascending(
-            Some(ns_string!("link.lastPathComponent")),
-            true,
-        );
-        let sort_descriptors =
-            NSArray::from_retained_slice(&[cached_name_descriptor, link_descriptor]);
-        fetch_request.setSortDescriptors(Some(&sort_descriptors));
-
         NSFetchedResultsController::initWithFetchRequest_managedObjectContext_sectionNameKeyPath_cacheName(
             NSFetchedResultsController::alloc(),
             &fetch_request,

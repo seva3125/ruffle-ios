@@ -55,7 +55,8 @@ impl AppDelegate {
         #[allow(deprecated)] // Unsure how else we should do this when setting up?
         let frame = UIScreen::mainScreen(mtm).bounds();
 
-        let window = unsafe { UIWindow::initWithFrame(mtm.alloc(), frame) };
+        #[allow(deprecated)]
+        let window = UIWindow::initWithFrame(mtm.alloc(), frame);
 
         let movie_path = std::path::absolute(movie_path).unwrap();
         let content = PlayingContent::DirectFile(Url::from_file_path(movie_path).unwrap());

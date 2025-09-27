@@ -432,7 +432,7 @@ impl EditController {
 
         // Do the same thing as UITableViewController, flash the scroll bar
         let table = self.ivars().table_view.get().expect("table view");
-        unsafe { table.flashScrollIndicators() };
+        table.flashScrollIndicators();
     }
 
     fn cell_at_index_path(
@@ -443,141 +443,138 @@ impl EditController {
         let mtm = MainThreadMarker::from(self);
         let movie = self.ivars().movie.get().unwrap();
         let options = movie.user_options();
-        unsafe {
-            let section = index_path.section() as usize;
-            let row = index_path.row() as usize;
-            if FORM.len() == section {
-                if options.parameters.len() == row {
-                    return table_view.dequeueReusableCellWithIdentifier_forIndexPath(
-                        ns_string!("movie-parameter-add"),
-                        index_path,
-                    );
-                }
+        let section = index_path.section() as usize;
+        let row = index_path.row() as usize;
+        if FORM.len() == section {
+            if options.parameters.len() == row {
+                return table_view.dequeueReusableCellWithIdentifier_forIndexPath(
+                    ns_string!("movie-parameter-add"),
+                    index_path,
+                );
+            }
 
-                let (param, value) = &options.parameters[row];
+            let (param, value) = &options.parameters[row];
+            let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
+                ns_string!("movie-parameter"),
+                index_path,
+            );
+            let subviews = cell.contentView().subviews();
+            let ui_param = subviews.objectAtIndex(1).downcast::<UITextField>().unwrap();
+            ui_param.setText(Some(&NSString::from_str(param)));
+            let ui_value = subviews.objectAtIndex(2).downcast::<UITextField>().unwrap();
+            ui_value.setText(Some(&NSString::from_str(value)));
+
+            return cell;
+        }
+
+        match FORM[section][row] {
+            FormElement::Name => {
                 let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
-                    ns_string!("movie-parameter"),
+                    ns_string!("root-name"),
+                    index_path,
+                );
+                let input = cell
+                    .contentView()
+                    .subviews()
+                    .objectAtIndex(0)
+                    .downcast::<UITextField>()
+                    .unwrap();
+                input.setText(Some(&movie.cachedName()));
+                cell
+            }
+            FormElement::String { label, text, .. } => {
+                let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
+                    ns_string!("string"),
                     index_path,
                 );
                 let subviews = cell.contentView().subviews();
-                let ui_param = subviews.objectAtIndex(1).downcast::<UITextField>().unwrap();
-                ui_param.setText(Some(&NSString::from_str(param)));
-                let ui_value = subviews.objectAtIndex(2).downcast::<UITextField>().unwrap();
-                ui_value.setText(Some(&NSString::from_str(value)));
 
-                return cell;
+                let ui_label = subviews.objectAtIndex(0).downcast::<UILabel>().unwrap();
+                ui_label.setText(Some(&NSString::from_str(label)));
+
+                let input = subviews.objectAtIndex(1).downcast::<UITextField>().unwrap();
+                input.setText(text(&options).map(|s| NSString::from_str(&s)).as_deref());
+                cell
             }
+            FormElement::Select {
+                label,
+                variants,
+                enabled_variant,
+                ..
+            } => {
+                let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
+                    ns_string!("select"),
+                    index_path,
+                );
+                let subviews = cell.contentView().subviews();
 
-            match FORM[section][row] {
-                FormElement::Name => {
-                    let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
-                        ns_string!("root-name"),
-                        index_path,
-                    );
-                    let input = cell
-                        .contentView()
-                        .subviews()
-                        .objectAtIndex(0)
-                        .downcast::<UITextField>()
-                        .unwrap();
-                    input.setText(Some(&movie.cachedName()));
-                    cell
+                let ui_label = subviews.objectAtIndex(0).downcast::<UILabel>().unwrap();
+                ui_label.setText(Some(&NSString::from_str(label)));
+
+                // Set menu
+                let enabled_variant = enabled_variant(&options);
+                let button = subviews.objectAtIndex(1).downcast::<UIButton>().unwrap();
+                // We have to use UIAction here, UICommand seems to be broken
+                let block = RcBlock::new(|_| {});
+                let block_ptr: *const Block<_> = &*block;
+                let default_item =
+                    unsafe { UIAction::actionWithHandler(block_ptr.cast_mut(), mtm) };
+                default_item.setTitle(ns_string!("Default"));
+                if enabled_variant.is_none() {
+                    default_item.setState(UIMenuElementState::On);
                 }
-                FormElement::String { label, text, .. } => {
-                    let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
-                        ns_string!("string"),
-                        index_path,
-                    );
-                    let subviews = cell.contentView().subviews();
 
-                    let ui_label = subviews.objectAtIndex(0).downcast::<UILabel>().unwrap();
-                    ui_label.setText(Some(&NSString::from_str(label)));
+                let children: Retained<NSArray<_>> = variants
+                    .iter()
+                    .map(|title| {
+                        let cmd = unsafe { UIAction::actionWithHandler(block_ptr.cast_mut(), mtm) };
+                        cmd.setTitle(&NSString::from_str(title));
+                        if enabled_variant == Some(title) {
+                            cmd.setState(UIMenuElementState::On);
+                        }
+                        Retained::into_super(cmd)
+                    })
+                    .collect();
+                button.setMenu(Some(
+                    &UIMenu::menuWithTitle_image_identifier_options_children(
+                        ns_string!(""),
+                        None,
+                        None,
+                        UIMenuOptions::SingleSelection,
+                        &NSArray::from_slice(&[
+                            &**default_item,
+                            &*UIMenu::menuWithTitle_image_identifier_options_children(
+                                ns_string!(""),
+                                None,
+                                None,
+                                UIMenuOptions::DisplayInline | UIMenuOptions::SingleSelection,
+                                &children,
+                                mtm,
+                            ),
+                        ]),
+                        mtm,
+                    ),
+                ));
+                cell
+            }
+            FormElement::Bool { label, value, .. } => {
+                let cell = table_view
+                    .dequeueReusableCellWithIdentifier_forIndexPath(ns_string!("bool"), index_path);
+                let subviews = cell.contentView().subviews();
 
-                    let input = subviews.objectAtIndex(1).downcast::<UITextField>().unwrap();
-                    input.setText(text(&options).map(|s| NSString::from_str(&s)).as_deref());
-                    cell
-                }
-                FormElement::Select {
-                    label,
-                    variants,
-                    enabled_variant,
-                    ..
-                } => {
-                    let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
-                        ns_string!("select"),
-                        index_path,
-                    );
-                    let subviews = cell.contentView().subviews();
+                let ui_label = subviews.objectAtIndex(0).downcast::<UILabel>().unwrap();
+                ui_label.setText(Some(&NSString::from_str(label)));
 
-                    let ui_label = subviews.objectAtIndex(0).downcast::<UILabel>().unwrap();
-                    ui_label.setText(Some(&NSString::from_str(label)));
-
-                    // Set menu
-                    let enabled_variant = enabled_variant(&options);
-                    let button = subviews.objectAtIndex(1).downcast::<UIButton>().unwrap();
-                    // We have to use UIAction here, UICommand seems to be broken
-                    let block = RcBlock::new(|_| {});
-                    let block_ptr: *const Block<_> = &*block;
-                    let default_item = UIAction::actionWithHandler(block_ptr.cast_mut(), mtm);
-                    default_item.setTitle(ns_string!("Default"));
-                    if enabled_variant.is_none() {
-                        default_item.setState(UIMenuElementState::On);
-                    }
-
-                    let children: Retained<NSArray<_>> = variants
-                        .iter()
-                        .map(|title| {
-                            let cmd = UIAction::actionWithHandler(block_ptr.cast_mut(), mtm);
-                            cmd.setTitle(&NSString::from_str(title));
-                            if enabled_variant == Some(title) {
-                                cmd.setState(UIMenuElementState::On);
-                            }
-                            Retained::into_super(cmd)
-                        })
-                        .collect();
-                    button.setMenu(Some(
-                        &UIMenu::menuWithTitle_image_identifier_options_children(
-                            ns_string!(""),
-                            None,
-                            None,
-                            UIMenuOptions::SingleSelection,
-                            &NSArray::from_slice(&[
-                                &**default_item,
-                                &*UIMenu::menuWithTitle_image_identifier_options_children(
-                                    ns_string!(""),
-                                    None,
-                                    None,
-                                    UIMenuOptions::DisplayInline | UIMenuOptions::SingleSelection,
-                                    &children,
-                                    mtm,
-                                ),
-                            ]),
-                            mtm,
-                        ),
-                    ));
-                    cell
-                }
-                FormElement::Bool { label, value, .. } => {
-                    let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
-                        ns_string!("bool"),
-                        index_path,
-                    );
-                    let subviews = cell.contentView().subviews();
-
-                    let ui_label = subviews.objectAtIndex(0).downcast::<UILabel>().unwrap();
-                    ui_label.setText(Some(&NSString::from_str(label)));
-
-                    let control = subviews
-                        .objectAtIndex(1)
-                        .downcast::<UISegmentedControl>()
-                        .unwrap();
-                    control.setSelectedSegmentIndex(match value(&options) {
-                        None => 0,
-                        Some(false) => 1,
-                        Some(true) => 2,
-                    });
-                    cell
-                }
+                let control = subviews
+                    .objectAtIndex(1)
+                    .downcast::<UISegmentedControl>()
+                    .unwrap();
+                control.setSelectedSegmentIndex(match value(&options) {
+                    None => 0,
+                    Some(false) => 1,
+                    Some(true) => 2,
+                });
+                cell
             }
         }
     }
@@ -586,7 +583,7 @@ impl EditController {
     //     let table_view = self.ivars().table_view.get().unwrap();
     //     let path = NSIndexPath::new();
     //     for (i, section) in FORM.iter().enumerate() {
-    //         let cell = unsafe { table_view.cellForRowAtIndexPath() };
+    //         let cell = table_view.cellForRowAtIndexPath();
     //     }
     //
     //     // Movie parameters

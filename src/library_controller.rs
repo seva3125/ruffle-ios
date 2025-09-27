@@ -192,12 +192,10 @@ define_class!(
             table_view: &UITableView,
             index_path: &NSIndexPath,
         ) -> Retained<UITableViewCell> {
-            let cell = unsafe {
-                table_view.dequeueReusableCellWithIdentifier_forIndexPath(
-                    ns_string!("library-item"),
-                    index_path,
-                )
-            };
+            let cell = table_view.dequeueReusableCellWithIdentifier_forIndexPath(
+                ns_string!("library-item"),
+                index_path,
+            );
             self.configure_cell(&cell, index_path);
             cell
         }
@@ -233,7 +231,7 @@ define_class!(
     unsafe impl NSFetchedResultsControllerDelegate for LibraryController {
         #[unsafe(method(controllerWillChangeContent:))]
         fn controllerWillChangeContent(&self, _controller: &NSFetchedResultsController) {
-            unsafe { self.tableView().unwrap().beginUpdates() };
+            self.tableView().unwrap().beginUpdates();
         }
 
         #[unsafe(method(controller:didChangeObject:atIndexPath:forChangeType:newIndexPath:))]
@@ -245,44 +243,42 @@ define_class!(
             r#type: NSFetchedResultsChangeType,
             new_index_path: Option<&NSIndexPath>,
         ) {
-            unsafe {
-                let table_view = self.tableView().unwrap();
+            let table_view = self.tableView().unwrap();
 
-                match r#type {
-                    NSFetchedResultsChangeType::Insert => table_view
-                        .insertRowsAtIndexPaths_withRowAnimation(
-                            &NSArray::from_slice(&[new_index_path.unwrap()]),
-                            UITableViewRowAnimation::Automatic,
-                        ),
-                    NSFetchedResultsChangeType::Delete => table_view
-                        .deleteRowsAtIndexPaths_withRowAnimation(
-                            &NSArray::from_slice(&[index_path.unwrap()]),
-                            UITableViewRowAnimation::Automatic,
-                        ),
-                    NSFetchedResultsChangeType::Update => self.configure_cell(
-                        &table_view
-                            .cellForRowAtIndexPath(index_path.unwrap())
-                            .unwrap(),
-                        index_path.unwrap(),
+            match r#type {
+                NSFetchedResultsChangeType::Insert => table_view
+                    .insertRowsAtIndexPaths_withRowAnimation(
+                        &NSArray::from_slice(&[new_index_path.unwrap()]),
+                        UITableViewRowAnimation::Automatic,
                     ),
-                    NSFetchedResultsChangeType::Move => {
-                        table_view.deleteRowsAtIndexPaths_withRowAnimation(
-                            &NSArray::from_slice(&[index_path.unwrap()]),
-                            UITableViewRowAnimation::Automatic,
-                        );
-                        table_view.insertRowsAtIndexPaths_withRowAnimation(
-                            &NSArray::from_slice(&[new_index_path.unwrap()]),
-                            UITableViewRowAnimation::Automatic,
-                        );
-                    }
-                    _ => {}
+                NSFetchedResultsChangeType::Delete => table_view
+                    .deleteRowsAtIndexPaths_withRowAnimation(
+                        &NSArray::from_slice(&[index_path.unwrap()]),
+                        UITableViewRowAnimation::Automatic,
+                    ),
+                NSFetchedResultsChangeType::Update => self.configure_cell(
+                    &table_view
+                        .cellForRowAtIndexPath(index_path.unwrap())
+                        .unwrap(),
+                    index_path.unwrap(),
+                ),
+                NSFetchedResultsChangeType::Move => {
+                    table_view.deleteRowsAtIndexPaths_withRowAnimation(
+                        &NSArray::from_slice(&[index_path.unwrap()]),
+                        UITableViewRowAnimation::Automatic,
+                    );
+                    table_view.insertRowsAtIndexPaths_withRowAnimation(
+                        &NSArray::from_slice(&[new_index_path.unwrap()]),
+                        UITableViewRowAnimation::Automatic,
+                    );
                 }
+                _ => {}
             }
         }
 
         #[unsafe(method(controllerDidChangeContent:))]
         fn controllerDidChangeContent(&self, _controller: &NSFetchedResultsController) {
-            unsafe { self.tableView().unwrap().endUpdates() };
+            self.tableView().unwrap().endUpdates();
         }
     }
 
@@ -330,9 +326,8 @@ impl LibraryController {
 
     fn setup_logo(&self) {
         let view = self.logo_view();
-        let asset =
-            unsafe { NSDataAsset::initWithName(NSDataAsset::alloc(), ns_string!("logo-anim")) }
-                .expect("asset store should contain logo-anim");
+        let asset = NSDataAsset::initWithName(NSDataAsset::alloc(), ns_string!("logo-anim"))
+            .expect("asset store should contain logo-anim");
         let data = unsafe { asset.data() };
         // SAFETY: SwfMovie::from_data won't modify the NSData.
         let bytes = unsafe { data.as_bytes_unchecked() };
@@ -376,25 +371,25 @@ impl LibraryController {
 
     #[allow(deprecated)]
     fn prepare_for_segue(&self, segue: &UIStoryboardSegue, sender: &NSObject) {
-        let destination = unsafe { segue.destinationViewController() };
+        let destination = segue.destinationViewController();
         tracing::info!(?destination, "prepareForSegue");
 
         // Identifiers are set up in the Storyboard
-        let identifier = unsafe { segue.identifier() }.expect("segue to have identifier");
+        let identifier = segue.identifier().expect("segue to have identifier");
         if &*identifier == ns_string!("add-item") {
             // No need to configure AddController
         } else if &*identifier == ns_string!("edit-item") {
             let edit_controller = destination.downcast_ref::<EditController>().unwrap();
             let cell = sender.downcast_ref::<UITableViewCell>().unwrap();
 
-            let index_path = unsafe { self.tableView().unwrap().indexPathForCell(&cell).unwrap() };
+            let index_path = self.tableView().unwrap().indexPathForCell(&cell).unwrap();
             let movie = unsafe { self.ivars().fetched_movies.objectAtIndexPath(&index_path) };
             edit_controller.setup_movie(&movie);
         } else if &*identifier == ns_string!("run-item") {
             let player_controller = destination.downcast_ref::<PlayerController>().unwrap();
             let cell = sender.downcast_ref::<UITableViewCell>().unwrap();
 
-            let index_path = unsafe { self.tableView().unwrap().indexPathForCell(&cell).unwrap() };
+            let index_path = self.tableView().unwrap().indexPathForCell(&cell).unwrap();
             let movie = unsafe { self.ivars().fetched_movies.objectAtIndexPath(&index_path) };
             player_controller.setup_movie(&movie);
         } else {
@@ -405,7 +400,7 @@ impl LibraryController {
     #[allow(deprecated)]
     fn save_item(&self, segue: &UIStoryboardSegue) {
         tracing::info!("saveEditItem");
-        let edit_controller = unsafe { segue.sourceViewController() };
+        let edit_controller = segue.sourceViewController();
         let edit_controller = edit_controller.downcast_ref::<EditController>().unwrap();
         dbg!(edit_controller); // TODO
     }
@@ -414,57 +409,51 @@ impl LibraryController {
     fn show_document_picker(&self) {
         tracing::info!("show document picker");
         let mtm = MainThreadMarker::from(self);
-        let picker = unsafe {
-            UIDocumentPickerViewController::initWithDocumentTypes_inMode(
-                mtm.alloc(),
-                &NSArray::from_slice(&[ns_string!(RUF_UTI), ns_string!(SWF_UTI)]),
-                UIDocumentPickerMode::Open,
-            )
-        };
-        unsafe { picker.setDelegate(Some(ProtocolObject::from_ref(self))) };
+        let picker = UIDocumentPickerViewController::initWithDocumentTypes_inMode(
+            mtm.alloc(),
+            &NSArray::from_slice(&[ns_string!(RUF_UTI), ns_string!(SWF_UTI)]),
+            UIDocumentPickerMode::Open,
+        );
+        picker.setDelegate(Some(ProtocolObject::from_ref(self)));
         // TODO: Consider setting picker.directoryURL to NSDownloadsDirectory,
         // as that's the likely place that people will have their SWFs.
 
-        unsafe { self.presentViewController_animated_completion(&picker, true, None) };
+        self.presentViewController_animated_completion(&picker, true, None);
     }
 
     fn toggle_editing(&self, button: &UIBarButtonItem) {
-        unsafe {
-            let table_view = self.tableView().expect("has table view");
-            let is_editing = !table_view.isEditing();
-            table_view.setEditing_animated(is_editing, true);
-            button.setTitle(Some(if is_editing {
-                ns_string!("Done")
-            } else {
-                ns_string!("Edit")
-            }));
-        }
+        let table_view = self.tableView().expect("has table view");
+        let is_editing = !table_view.isEditing();
+        table_view.setEditing_animated(is_editing, true);
+        button.setTitle(Some(if is_editing {
+            ns_string!("Done")
+        } else {
+            ns_string!("Edit")
+        }));
     }
 
     fn configure_cell(&self, cell: &UITableViewCell, index_path: &NSIndexPath) {
-        unsafe {
-            let subviews = cell.contentView().subviews();
-            let title = subviews.objectAtIndex(1).downcast::<UILabel>().unwrap();
-            let subtitle = subviews.objectAtIndex(2).downcast::<UILabel>().unwrap();
+        let subviews = cell.contentView().subviews();
+        let title = subviews.objectAtIndex(1).downcast::<UILabel>().unwrap();
+        let subtitle = subviews.objectAtIndex(2).downcast::<UILabel>().unwrap();
 
-            let movie = self.ivars().fetched_movies.objectAtIndexPath(index_path);
-            let cached_name = movie.cachedName();
-            let url = movie.link();
+        let movie = unsafe { self.ivars().fetched_movies.objectAtIndexPath(index_path) };
+        let cached_name = movie.cachedName();
+        let url = movie.link();
 
-            title.setText(Some(&cached_name));
+        title.setText(Some(&cached_name));
 
-            if url.isFileURL() {
-                if let Some(_access) = storage::SecurityScopedResource::access(&url) {
-                    dbg!(&url, url.filePathURL());
-                    subtitle.setText(Some(
-                        &url.filePathURL().unwrap().lastPathComponent().unwrap(),
-                    ));
-                } else {
-                    subtitle.setText(Some(ns_string!("Unknown")));
-                }
+        if url.isFileURL() {
+            if let Some(_access) = storage::SecurityScopedResource::access(&url) {
+                dbg!(&url, url.filePathURL());
+                subtitle.setText(Some(
+                    &url.filePathURL().unwrap().lastPathComponent().unwrap(),
+                ));
             } else {
-                subtitle.setText(Some(&url.absoluteString().unwrap()));
+                subtitle.setText(Some(ns_string!("Unknown")));
             }
+        } else {
+            subtitle.setText(Some(&url.absoluteString().unwrap()));
         }
     }
 }

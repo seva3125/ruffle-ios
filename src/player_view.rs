@@ -190,7 +190,7 @@ define_class!(
 
         #[unsafe(method(remoteControlReceivedWithEvent:))]
         fn remoteControlReceivedWithEvent(&self, event: Option<&UIEvent>) {
-            tracing::info!(subtype = ?event.map(|e| unsafe { e.subtype() }), "remoteControlReceivedWithEvent:");
+            tracing::info!(subtype = ?event.map(|e| e.subtype()), "remoteControlReceivedWithEvent:");
         }
     }
 
@@ -235,7 +235,7 @@ impl PlayerView {
 
     fn init(&self) {
         // Ensure that the view calls `drawRect:` after being resized
-        unsafe { self.setContentMode(UIViewContentMode::Redraw) };
+        self.setContentMode(UIViewContentMode::Redraw);
 
         // Create repeating timer that won't fire until we properly start it
         // (because of the high interval).
@@ -332,13 +332,13 @@ impl PlayerView {
 
     pub fn start(&self) {
         self.player_lock().set_is_playing(true);
-        unsafe { self.timer().fire() };
+        self.timer().fire();
     }
 
     pub fn stop(&self) {
         self.player_lock().set_is_playing(false);
         // Don't update the timer while we're stopped
-        unsafe { self.timer().setFireDate(&NSDate::distantFuture()) };
+        self.timer().setFireDate(&NSDate::distantFuture());
     }
 
     pub fn flush(&self) {
@@ -361,10 +361,9 @@ impl PlayerView {
         player_lock.tick(dt as f64 / 1_000_000.0);
         // FIXME: The instant that `time_til_next_frame` is relative to isn't
         // defined, so we have to assume that it's roughly relative to "now".
-        let next_fire = unsafe {
-            NSDate::dateWithTimeIntervalSinceNow(player_lock.time_til_next_frame().as_secs_f64())
-        };
-        unsafe { self.timer().setFireDate(&next_fire) };
+        let next_fire =
+            NSDate::dateWithTimeIntervalSinceNow(player_lock.time_til_next_frame().as_secs_f64());
+        self.timer().setFireDate(&next_fire);
 
         if player_lock.needs_render() {
             self.layer().setNeedsDisplay();
@@ -427,7 +426,7 @@ impl PlayerView {
         let mut handled = false;
         for press in presses {
             // TODO: Consider press.r#type()
-            let Some(key) = (unsafe { press.key(mtm) }) else {
+            let Some(key) = press.key(mtm) else {
                 continue;
             };
             let key = KeyDescriptor {
@@ -436,7 +435,7 @@ impl PlayerView {
                 key_location: KeyLocation::Standard,
             };
 
-            let event = match unsafe { press.phase() } {
+            let event = match press.phase() {
                 UIPressPhase::Began => PlayerEvent::KeyDown { key },
                 // FIXME: Forward event cancellation
                 UIPressPhase::Ended | UIPressPhase::Cancelled => PlayerEvent::KeyUp { key },
@@ -453,14 +452,14 @@ impl Drop for PlayerView {
     fn drop(&mut self) {
         // Invalidate the timer if it was registered
         if let Some(timer) = self.ivars().timer.get() {
-            unsafe { timer.invalidate() };
+            timer.invalidate();
         }
     }
 }
 
 fn key_to_physical(key: &UIKey) -> PhysicalKey {
     use objc2_ui_kit::UIKeyboardHIDUsage as UI;
-    match unsafe { key.keyCode() } {
+    match key.keyCode() {
         UI::KeyboardA => PhysicalKey::KeyA,
         UI::KeyboardB => PhysicalKey::KeyB,
         UI::KeyboardC => PhysicalKey::KeyC,
@@ -589,10 +588,7 @@ fn key_to_physical(key: &UIKey) -> PhysicalKey {
 fn key_to_logical(key: &UIKey) -> LogicalKey {
     // FIXME: `last()` is functionally equivalent in most cases, but
     // we may want to do something else here.
-    let key_char = unsafe { key.charactersIgnoringModifiers() }
-        .to_string()
-        .chars()
-        .last();
+    let key_char = key.charactersIgnoringModifiers().to_string().chars().last();
 
     if let Some(key_char) = key_char {
         LogicalKey::Character(key_char)

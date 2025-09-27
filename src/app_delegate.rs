@@ -93,13 +93,11 @@ define_class!(
             // Called when a new scene session is being created.
             // Use this method to select a configuration to create the new scene with.
             let mtm = MainThreadMarker::from(self);
-            unsafe {
-                UISceneConfiguration::initWithName_sessionRole(
-                    mtm.alloc(),
-                    Some(ns_string!("Default Configuration")),
-                    &connecting_scene_session.role(),
-                )
-            }
+            UISceneConfiguration::initWithName_sessionRole(
+                mtm.alloc(),
+                Some(ns_string!("Default Configuration")),
+                &connecting_scene_session.role(),
+            )
         }
 
         #[unsafe(method(application:didDiscardSceneSessions:))]
