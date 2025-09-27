@@ -7,6 +7,10 @@ license = "MIT OR Apache-2.0"
 rust-version = "1.81"
 publish = false
 
+[features]
+default = ["render_debug_labels"]
+render_debug_labels = ["ruffle_render_wgpu/render_debug_labels"]
+
 [dependencies]
 block2 = "0.6"
 objc2 = "0.6"
