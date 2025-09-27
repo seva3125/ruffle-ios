@@ -41,11 +41,9 @@ url = "2.5.2"
 tokio = { version = "1.40.0", features = ["rt-multi-thread", "macros"] }
 libc = "0.2.158"
 
-# Redirect tracing to OSLog via. log
-tracing = { version = "0.1.40", features = ["log", "log-always"] }
-log = "0.4.22"
-oslog = "0.2.0"
-simple_logger = "5.0.0"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+tracing-oslog = "0.3.0"
 
 [package.metadata.bundle.bin.run_swf]
 name = "Ruffle"

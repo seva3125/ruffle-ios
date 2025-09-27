@@ -2,6 +2,9 @@ use objc2::runtime::AnyClass;
 use objc2::ClassType;
 use objc2_foundation::{MainThreadMarker, NSString};
 use objc2_ui_kit::UIApplication;
+use tracing_subscriber::fmt::Layer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 mod add_controller;
 mod app_delegate;
@@ -16,23 +19,25 @@ pub use self::app_delegate::AppDelegate;
 pub use self::player_controller::PlayerController;
 pub use self::player_view::PlayerView;
 
+/// Emit logging to either OSLog or stderr, depending on if using Mac
+/// Catalyst or native.
+///
+/// TODO: If running Mac Catalyst under Xcode
 pub fn init_logging() {
-    // Emit logging to either OSLog or stderr, depending on if using Mac
-    // Catalyst or native.
-    // TODO: If running Mac Catalyst under Xcode
-    let filter = log::LevelFilter::Info;
-    if cfg!(target_abi = "macabi") {
-        simple_logger::SimpleLogger::new()
-            .with_level(filter)
-            .env()
-            .init()
-            .unwrap();
-    } else {
-        oslog::OsLogger::new(module_path!())
-            .level_filter(filter)
-            .init()
-            .unwrap();
-    }
+    let subscriber = tracing_subscriber::registry();
+
+    let env_filter = tracing_subscriber::EnvFilter::builder()
+        .parse_lossy(std::env::var("RUST_LOG").as_deref().unwrap_or("info"));
+
+    let subscriber = subscriber.with(env_filter);
+
+    #[cfg(target_abi = "macabi")]
+    let subscriber = subscriber.with(Layer::new().with_writer(std::io::stderr));
+
+    #[cfg(not(target_abi = "macabi"))]
+    let subscriber = subscriber.with(tracing_oslog::OsLogger::default());
+
+    subscriber.init();
 }
 
 pub fn launch(app_class: Option<&AnyClass>, delegate_class: Option<&AnyClass>) {
