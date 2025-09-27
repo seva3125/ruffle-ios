@@ -360,7 +360,7 @@ pub fn get_playing_content(url: &NSURL) -> PlayingContent {
             }
 
             let s = unsafe { url.filePathURL().unwrap().absoluteString().unwrap() }.to_string();
-            PlayingContent::Bundle(Url::parse(&s).unwrap(), bundle)
+            PlayingContent::Bundle(Url::parse(&s).unwrap(), Box::new(bundle))
         }
         Err(BundleError::BundleDoesntExist)
         | Err(BundleError::InvalidSource(BundleSourceError::UnknownSource)) => {

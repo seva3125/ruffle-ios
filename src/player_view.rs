@@ -13,10 +13,10 @@ use objc2_foundation::{
 };
 use objc2_quartz_core::{CALayer, CALayerDelegate, CAMetalLayer};
 use objc2_ui_kit::{
-    UIEvent, UIKeyboardHIDUsage, UIPress, UIPressPhase, UIPressesEvent, UITouch, UITouchPhase,
-    UIView, UIViewContentMode,
+    UIEvent, UIKey, UIPress, UIPressPhase, UIPressesEvent, UITouch, UITouchPhase, UIView,
+    UIViewContentMode,
 };
-use ruffle_core::events::{KeyCode, MouseButton};
+use ruffle_core::events::{KeyDescriptor, KeyLocation, LogicalKey, MouseButton, PhysicalKey};
 use ruffle_core::{Player, PlayerEvent, ViewportDimensions};
 use ruffle_render_wgpu::backend::WgpuRenderBackend;
 use ruffle_render_wgpu::target::SwapChainTarget;
@@ -320,7 +320,6 @@ impl PlayerView {
                 (dimensions.width.max(1), dimensions.height.max(1)),
                 wgpu::Backends::METAL,
                 wgpu::PowerPreference::HighPerformance,
-                None,
             )
             .expect("creating renderer")
         }
@@ -431,20 +430,16 @@ impl PlayerView {
             let Some(key) = (unsafe { press.key(mtm) }) else {
                 continue;
             };
-            let key_code = key_code_to_ruffle(unsafe { key.keyCode() });
-            // FIXME: `last()` is functionally equivalent in most cases, but
-            // we may want to do something else here.
-            let key_char = unsafe { key.charactersIgnoringModifiers() }
-                .to_string()
-                .chars()
-                .last();
+            let key = KeyDescriptor {
+                physical_key: key_to_physical(&key),
+                logical_key: key_to_logical(&key),
+                key_location: KeyLocation::Standard,
+            };
 
             let event = match unsafe { press.phase() } {
-                UIPressPhase::Began => PlayerEvent::KeyDown { key_code, key_char },
+                UIPressPhase::Began => PlayerEvent::KeyDown { key },
                 // FIXME: Forward event cancellation
-                UIPressPhase::Ended | UIPressPhase::Cancelled => {
-                    PlayerEvent::KeyUp { key_code, key_char }
-                }
+                UIPressPhase::Ended | UIPressPhase::Cancelled => PlayerEvent::KeyUp { key },
                 _ => continue,
             };
 
@@ -463,139 +458,146 @@ impl Drop for PlayerView {
     }
 }
 
-fn key_code_to_ruffle(code: UIKeyboardHIDUsage) -> KeyCode {
+fn key_to_physical(key: &UIKey) -> PhysicalKey {
     use objc2_ui_kit::UIKeyboardHIDUsage as UI;
-    match code {
-        UI::KeyboardA => KeyCode::A,
-        UI::KeyboardB => KeyCode::B,
-        UI::KeyboardC => KeyCode::C,
-        UI::KeyboardD => KeyCode::D,
-        UI::KeyboardE => KeyCode::E,
-        UI::KeyboardF => KeyCode::F,
-        UI::KeyboardG => KeyCode::G,
-        UI::KeyboardH => KeyCode::H,
-        UI::KeyboardI => KeyCode::I,
-        UI::KeyboardJ => KeyCode::J,
-        UI::KeyboardK => KeyCode::K,
-        UI::KeyboardL => KeyCode::L,
-        UI::KeyboardM => KeyCode::M,
-        UI::KeyboardN => KeyCode::N,
-        UI::KeyboardO => KeyCode::O,
-        UI::KeyboardP => KeyCode::P,
-        UI::KeyboardQ => KeyCode::Q,
-        UI::KeyboardR => KeyCode::R,
-        UI::KeyboardS => KeyCode::S,
-        UI::KeyboardT => KeyCode::T,
-        UI::KeyboardU => KeyCode::U,
-        UI::KeyboardV => KeyCode::V,
-        UI::KeyboardW => KeyCode::W,
-        UI::KeyboardX => KeyCode::X,
-        UI::KeyboardY => KeyCode::Y,
-        UI::KeyboardZ => KeyCode::Z,
-        UI::Keyboard1 => KeyCode::KEY1,
-        UI::Keyboard2 => KeyCode::KEY2,
-        UI::Keyboard3 => KeyCode::KEY3,
-        UI::Keyboard4 => KeyCode::KEY4,
-        UI::Keyboard5 => KeyCode::KEY5,
-        UI::Keyboard6 => KeyCode::KEY6,
-        UI::Keyboard7 => KeyCode::KEY7,
-        UI::Keyboard8 => KeyCode::KEY8,
-        UI::Keyboard9 => KeyCode::KEY9,
-        UI::Keyboard0 => KeyCode::KEY0,
-        UI::KeyboardReturnOrEnter => KeyCode::RETURN,
-        UI::KeyboardEscape => KeyCode::ESCAPE,
-        UI::KeyboardDeleteOrBackspace => KeyCode::DELETE,
-        UI::KeyboardTab => KeyCode::TAB,
-        UI::KeyboardSpacebar => KeyCode::SPACE,
-        UI::KeyboardHyphen => KeyCode::MINUS,
-        UI::KeyboardEqualSign => KeyCode::EQUALS,
-        UI::KeyboardOpenBracket => KeyCode::LBRACKET,
-        UI::KeyboardCloseBracket => KeyCode::RBRACKET,
-        UI::KeyboardBackslash => KeyCode::BACKSLASH,
-        UI::KeyboardSemicolon => KeyCode::SEMICOLON,
-        UI::KeyboardQuote => KeyCode::APOSTROPHE,
-        UI::KeyboardGraveAccentAndTilde => KeyCode::GRAVE,
-        UI::KeyboardComma => KeyCode::COMMA,
-        UI::KeyboardPeriod => KeyCode::PERIOD,
-        UI::KeyboardSlash => KeyCode::SLASH,
-        UI::KeyboardCapsLock => KeyCode::CAPS_LOCK,
-        UI::KeyboardF1 => KeyCode::F1,
-        UI::KeyboardF2 => KeyCode::F2,
-        UI::KeyboardF3 => KeyCode::F3,
-        UI::KeyboardF4 => KeyCode::F4,
-        UI::KeyboardF5 => KeyCode::F5,
-        UI::KeyboardF6 => KeyCode::F6,
-        UI::KeyboardF7 => KeyCode::F7,
-        UI::KeyboardF8 => KeyCode::F8,
-        UI::KeyboardF9 => KeyCode::F9,
-        UI::KeyboardF10 => KeyCode::F10,
-        UI::KeyboardF11 => KeyCode::F11,
-        UI::KeyboardF12 => KeyCode::F12,
-        UI::KeyboardScrollLock => KeyCode::SCROLL_LOCK,
-        UI::KeyboardPause => KeyCode::PAUSE,
-        UI::KeyboardInsert => KeyCode::INSERT,
-        UI::KeyboardHome => KeyCode::HOME,
-        UI::KeyboardPageUp => KeyCode::PG_UP,
-        UI::KeyboardEnd => KeyCode::END,
-        UI::KeyboardPageDown => KeyCode::PG_DOWN,
-        UI::KeyboardRightArrow => KeyCode::RIGHT,
-        UI::KeyboardLeftArrow => KeyCode::LEFT,
-        UI::KeyboardDownArrow => KeyCode::DOWN,
-        UI::KeyboardUpArrow => KeyCode::UP,
-        UI::KeypadNumLock => KeyCode::NUM_LOCK,
-        UI::KeypadSlash => KeyCode::NUMPAD_SLASH,
-        UI::KeypadAsterisk => KeyCode::MULTIPLY,
-        UI::KeypadHyphen => KeyCode::NUMPAD_MINUS,
-        UI::KeypadPlus => KeyCode::PLUS,
-        UI::KeypadEnter => KeyCode::NUMPAD_ENTER,
-        UI::Keypad1 => KeyCode::NUMPAD1,
-        UI::Keypad2 => KeyCode::NUMPAD2,
-        UI::Keypad3 => KeyCode::NUMPAD3,
-        UI::Keypad4 => KeyCode::NUMPAD4,
-        UI::Keypad5 => KeyCode::NUMPAD5,
-        UI::Keypad6 => KeyCode::NUMPAD6,
-        UI::Keypad7 => KeyCode::NUMPAD7,
-        UI::Keypad8 => KeyCode::NUMPAD8,
-        UI::Keypad9 => KeyCode::NUMPAD9,
-        UI::Keypad0 => KeyCode::NUMPAD0,
-        UI::KeypadPeriod => KeyCode::NUMPAD_PERIOD,
-        UI::KeyboardNonUSBackslash => KeyCode::BACKSLASH,
-        UI::KeypadEqualSign => KeyCode::EQUALS,
-        UI::KeyboardF13 => KeyCode::F13,
-        UI::KeyboardF14 => KeyCode::F14,
-        UI::KeyboardF15 => KeyCode::F15,
-        UI::KeyboardF16 => KeyCode::F16,
-        UI::KeyboardF17 => KeyCode::F17,
-        UI::KeyboardF18 => KeyCode::F18,
-        UI::KeyboardF19 => KeyCode::F19,
-        UI::KeyboardF20 => KeyCode::F20,
-        UI::KeyboardF21 => KeyCode::F21,
-        UI::KeyboardF22 => KeyCode::F22,
-        UI::KeyboardF23 => KeyCode::F23,
-        UI::KeyboardF24 => KeyCode::F24,
-        UI::KeypadComma => KeyCode::COMMA,
-        UI::KeypadEqualSignAS400 => KeyCode::EQUALS,
-        UI::KeyboardInternational1 => KeyCode::KEY1,
-        UI::KeyboardInternational2 => KeyCode::KEY2,
-        UI::KeyboardInternational3 => KeyCode::KEY3,
-        UI::KeyboardInternational4 => KeyCode::KEY4,
-        UI::KeyboardInternational5 => KeyCode::KEY5,
-        UI::KeyboardInternational6 => KeyCode::KEY6,
-        UI::KeyboardInternational7 => KeyCode::KEY7,
-        UI::KeyboardInternational8 => KeyCode::KEY8,
-        UI::KeyboardInternational9 => KeyCode::KEY9,
-        UI::KeyboardReturn => KeyCode::RETURN,
-        UI::KeyboardLeftControl => KeyCode::CONTROL,
-        UI::KeyboardLeftShift => KeyCode::SHIFT,
-        UI::KeyboardLeftAlt => KeyCode::ALT,
-        UI::KeyboardLeftGUI => KeyCode::COMMAND,
-        UI::KeyboardRightControl => KeyCode::CONTROL,
-        UI::KeyboardRightShift => KeyCode::SHIFT,
-        UI::KeyboardRightAlt => KeyCode::ALT,
-        UI::KeyboardRightGUI => KeyCode::COMMAND,
-        _ => {
-            tracing::warn!("unhandled key {}", code.0);
-            KeyCode::UNKNOWN
+    match unsafe { key.keyCode() } {
+        UI::KeyboardA => PhysicalKey::KeyA,
+        UI::KeyboardB => PhysicalKey::KeyB,
+        UI::KeyboardC => PhysicalKey::KeyC,
+        UI::KeyboardD => PhysicalKey::KeyD,
+        UI::KeyboardE => PhysicalKey::KeyE,
+        UI::KeyboardF => PhysicalKey::KeyF,
+        UI::KeyboardG => PhysicalKey::KeyG,
+        UI::KeyboardH => PhysicalKey::KeyH,
+        UI::KeyboardI => PhysicalKey::KeyI,
+        UI::KeyboardJ => PhysicalKey::KeyJ,
+        UI::KeyboardK => PhysicalKey::KeyK,
+        UI::KeyboardL => PhysicalKey::KeyL,
+        UI::KeyboardM => PhysicalKey::KeyM,
+        UI::KeyboardN => PhysicalKey::KeyN,
+        UI::KeyboardO => PhysicalKey::KeyO,
+        UI::KeyboardP => PhysicalKey::KeyP,
+        UI::KeyboardQ => PhysicalKey::KeyQ,
+        UI::KeyboardR => PhysicalKey::KeyR,
+        UI::KeyboardS => PhysicalKey::KeyS,
+        UI::KeyboardT => PhysicalKey::KeyT,
+        UI::KeyboardU => PhysicalKey::KeyU,
+        UI::KeyboardV => PhysicalKey::KeyV,
+        UI::KeyboardW => PhysicalKey::KeyW,
+        UI::KeyboardX => PhysicalKey::KeyX,
+        UI::KeyboardY => PhysicalKey::KeyY,
+        UI::KeyboardZ => PhysicalKey::KeyZ,
+        UI::Keyboard1 => PhysicalKey::Digit1,
+        UI::Keyboard2 => PhysicalKey::Digit2,
+        UI::Keyboard3 => PhysicalKey::Digit3,
+        UI::Keyboard4 => PhysicalKey::Digit4,
+        UI::Keyboard5 => PhysicalKey::Digit5,
+        UI::Keyboard6 => PhysicalKey::Digit6,
+        UI::Keyboard7 => PhysicalKey::Digit7,
+        UI::Keyboard8 => PhysicalKey::Digit8,
+        UI::Keyboard9 => PhysicalKey::Digit9,
+        UI::Keyboard0 => PhysicalKey::Digit0,
+        UI::KeyboardReturnOrEnter => PhysicalKey::Enter,
+        UI::KeyboardEscape => PhysicalKey::Escape,
+        UI::KeyboardDeleteOrBackspace => PhysicalKey::Delete,
+        UI::KeyboardTab => PhysicalKey::Tab,
+        UI::KeyboardSpacebar => PhysicalKey::Space,
+        UI::KeyboardHyphen => PhysicalKey::Minus,
+        UI::KeyboardEqualSign => PhysicalKey::Equal,
+        UI::KeyboardOpenBracket => PhysicalKey::BracketLeft,
+        UI::KeyboardCloseBracket => PhysicalKey::BracketRight,
+        UI::KeyboardBackslash => PhysicalKey::Backslash,
+        UI::KeyboardSemicolon => PhysicalKey::Semicolon,
+        UI::KeyboardQuote => PhysicalKey::Quote,
+        UI::KeyboardGraveAccentAndTilde => PhysicalKey::Backquote,
+        UI::KeyboardComma => PhysicalKey::Comma,
+        UI::KeyboardPeriod => PhysicalKey::Period,
+        UI::KeyboardSlash => PhysicalKey::Slash,
+        UI::KeyboardCapsLock => PhysicalKey::CapsLock,
+        UI::KeyboardF1 => PhysicalKey::F1,
+        UI::KeyboardF2 => PhysicalKey::F2,
+        UI::KeyboardF3 => PhysicalKey::F3,
+        UI::KeyboardF4 => PhysicalKey::F4,
+        UI::KeyboardF5 => PhysicalKey::F5,
+        UI::KeyboardF6 => PhysicalKey::F6,
+        UI::KeyboardF7 => PhysicalKey::F7,
+        UI::KeyboardF8 => PhysicalKey::F8,
+        UI::KeyboardF9 => PhysicalKey::F9,
+        UI::KeyboardF10 => PhysicalKey::F10,
+        UI::KeyboardF11 => PhysicalKey::F11,
+        UI::KeyboardF12 => PhysicalKey::F12,
+        UI::KeyboardScrollLock => PhysicalKey::ScrollLock,
+        UI::KeyboardPause => PhysicalKey::Pause,
+        UI::KeyboardInsert => PhysicalKey::Insert,
+        UI::KeyboardHome => PhysicalKey::Home,
+        UI::KeyboardPageUp => PhysicalKey::PageUp,
+        UI::KeyboardEnd => PhysicalKey::End,
+        UI::KeyboardPageDown => PhysicalKey::PageDown,
+        UI::KeyboardRightArrow => PhysicalKey::ArrowRight,
+        UI::KeyboardLeftArrow => PhysicalKey::ArrowLeft,
+        UI::KeyboardDownArrow => PhysicalKey::ArrowDown,
+        UI::KeyboardUpArrow => PhysicalKey::ArrowUp,
+        UI::KeypadNumLock => PhysicalKey::NumLock,
+        UI::KeypadSlash => PhysicalKey::NumpadDivide,
+        UI::KeypadAsterisk => PhysicalKey::NumpadMultiply,
+        UI::KeypadHyphen => PhysicalKey::NumpadSubtract,
+        UI::KeypadPlus => PhysicalKey::NumpadAdd,
+        UI::KeypadEnter => PhysicalKey::NumpadEnter,
+        UI::Keypad1 => PhysicalKey::Numpad1,
+        UI::Keypad2 => PhysicalKey::Numpad2,
+        UI::Keypad3 => PhysicalKey::Numpad3,
+        UI::Keypad4 => PhysicalKey::Numpad4,
+        UI::Keypad5 => PhysicalKey::Numpad5,
+        UI::Keypad6 => PhysicalKey::Numpad6,
+        UI::Keypad7 => PhysicalKey::Numpad7,
+        UI::Keypad8 => PhysicalKey::Numpad8,
+        UI::Keypad9 => PhysicalKey::Numpad9,
+        UI::Keypad0 => PhysicalKey::Numpad0,
+        UI::KeypadPeriod => PhysicalKey::NumpadComma, // Maybe?
+        UI::KeyboardNonUSBackslash => PhysicalKey::IntlBackslash,
+        UI::KeypadEqualSign => PhysicalKey::Equal,
+        UI::KeyboardF13 => PhysicalKey::F13,
+        UI::KeyboardF14 => PhysicalKey::F14,
+        UI::KeyboardF15 => PhysicalKey::F15,
+        UI::KeyboardF16 => PhysicalKey::F16,
+        UI::KeyboardF17 => PhysicalKey::F17,
+        UI::KeyboardF18 => PhysicalKey::F18,
+        UI::KeyboardF19 => PhysicalKey::F19,
+        UI::KeyboardF20 => PhysicalKey::F20,
+        UI::KeyboardF21 => PhysicalKey::F21,
+        UI::KeyboardF22 => PhysicalKey::F22,
+        UI::KeyboardF23 => PhysicalKey::F23,
+        UI::KeyboardF24 => PhysicalKey::F24,
+        UI::KeypadComma => PhysicalKey::Comma,
+        UI::KeypadEqualSignAS400 => PhysicalKey::Equal,
+        UI::KeyboardReturn => PhysicalKey::Enter,
+        UI::KeyboardLeftControl => PhysicalKey::ControlLeft,
+        UI::KeyboardLeftShift => PhysicalKey::ShiftLeft,
+        UI::KeyboardLeftAlt => PhysicalKey::AltLeft,
+        UI::KeyboardLeftGUI => PhysicalKey::SuperLeft,
+        UI::KeyboardRightControl => PhysicalKey::ControlRight,
+        UI::KeyboardRightShift => PhysicalKey::ShiftRight,
+        UI::KeyboardRightAlt => PhysicalKey::AltRight,
+        UI::KeyboardRightGUI => PhysicalKey::SuperRight,
+        code => {
+            tracing::warn!("unhandled physical key {code:?}");
+            PhysicalKey::Unknown
         }
+    }
+}
+
+fn key_to_logical(key: &UIKey) -> LogicalKey {
+    // FIXME: `last()` is functionally equivalent in most cases, but
+    // we may want to do something else here.
+    let key_char = unsafe { key.charactersIgnoringModifiers() }
+        .to_string()
+        .chars()
+        .last();
+
+    if let Some(key_char) = key_char {
+        LogicalKey::Character(key_char)
+    } else {
+        tracing::warn!("unhandled logical key {key:?}");
+        LogicalKey::Unknown
     }
 }

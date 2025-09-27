@@ -1,9 +1,7 @@
-use std::ptr::NonNull;
-
 use objc2::runtime::AnyClass;
 use objc2::ClassType;
-use objc2_foundation::{MainThreadMarker, NSStringFromClass};
-use objc2_ui_kit::UIApplicationMain;
+use objc2_foundation::{MainThreadMarker, NSString};
+use objc2_ui_kit::UIApplication;
 
 mod add_controller;
 mod app_delegate;
@@ -54,13 +52,12 @@ pub fn launch(app_class: Option<&AnyClass>, delegate_class: Option<&AnyClass>) {
     let _ = storage::Movie::class();
     let _ = storage::MovieData::class();
 
-    let _ = MainThreadMarker::new().unwrap();
-    unsafe {
-        UIApplicationMain(
-            *libc::_NSGetArgc(),
-            NonNull::new(*libc::_NSGetArgv()).unwrap(),
-            app_class.map(|cls| NSStringFromClass(cls)).as_deref(),
-            delegate_class.map(|cls| NSStringFromClass(cls)).as_deref(),
-        );
-    }
+    let mtm = MainThreadMarker::new().unwrap();
+    UIApplication::main(
+        app_class.map(|cls| NSString::from_class(cls)).as_deref(),
+        delegate_class
+            .map(|cls| NSString::from_class(cls))
+            .as_deref(),
+        mtm,
+    );
 }
