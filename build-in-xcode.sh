@@ -23,8 +23,14 @@ case "$PLATFORM_NAME" in
   "appletvos" | "appletvsimulator") CARGO_XCODE_TARGET_OS=tvos ;;
   "watchos") CARGO_XCODE_TARGET_OS=watchos ;;
   "watchsimulator") CARGO_XCODE_TARGET_OS=watchos-sim ;;
-  "xros") CARGO_XCODE_TARGET_OS=visionos ;;
-  "xrsimulator") CARGO_XCODE_TARGET_OS=visionos-sim ;;
+  "xros")
+    CARGO_XCODE_TARGET_OS=visionos
+    OTHER_INPUT_FILE_FLAGS+=" -Zbuild-std"
+    ;;
+  "xrsimulator")
+    CARGO_XCODE_TARGET_OS=visionos-sim
+    OTHER_INPUT_FILE_FLAGS+=" -Zbuild-std"
+    ;;
   *)
     CARGO_XCODE_TARGET_OS="$PLATFORM_NAME"
     echo >&2 "warning: cargo-xcode needs to be updated to handle $PLATFORM_NAME"

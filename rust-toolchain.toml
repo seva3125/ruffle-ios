@@ -1,5 +1,5 @@
 [toolchain]
-# Until 1.83 comes out
+# TODO: Switch to stable and add visionOS targets once https://github.com/rust-lang/compiler-team/issues/918 is done
 channel = "nightly"
 components = ["rust-src"]
 targets = [
