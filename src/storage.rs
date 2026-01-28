@@ -41,7 +41,7 @@ use objc2_foundation::{
 use ruffle_core::backend::storage::StorageBackend;
 use ruffle_frontend_utils::bundle::source::BundleSourceError;
 use ruffle_frontend_utils::bundle::{Bundle, BundleError};
-use ruffle_frontend_utils::content::PlayingContent;
+use ruffle_frontend_utils::content::{ContentDescriptor, PlayingContent};
 use ruffle_frontend_utils::player_options::PlayerOptions;
 use url::Url;
 
@@ -350,7 +350,10 @@ pub fn get_playing_content(url: &NSURL) -> PlayingContent {
     if !url.isFileURL() {
         let s = url.absoluteString().unwrap().to_string();
         let url = Url::parse(&s).unwrap();
-        return PlayingContent::DirectFile(url);
+        return PlayingContent::DirectFile(ContentDescriptor {
+            url,
+            root_content_path: None, // TODO
+        });
     }
 
     // Ensure we are authorized to read the bundle contents.
@@ -375,7 +378,14 @@ pub fn get_playing_content(url: &NSURL) -> PlayingContent {
                 .absoluteString()
                 .unwrap()
                 .to_string();
-            PlayingContent::Bundle(Url::parse(&s).unwrap(), Box::new(bundle))
+            let url = Url::parse(&s).unwrap();
+            PlayingContent::Bundle(
+                ContentDescriptor {
+                    url,
+                    root_content_path: None, // TODO
+                },
+                Box::new(bundle),
+            )
         }
         Err(BundleError::BundleDoesntExist)
         | Err(BundleError::InvalidSource(BundleSourceError::UnknownSource)) => {
@@ -386,7 +396,11 @@ pub fn get_playing_content(url: &NSURL) -> PlayingContent {
                 .absoluteString()
                 .unwrap()
                 .to_string();
-            PlayingContent::DirectFile(Url::parse(&s).unwrap())
+            let url = Url::parse(&s).unwrap();
+            PlayingContent::DirectFile(ContentDescriptor {
+                url,
+                root_content_path: None, // TODO
+            })
         }
         Err(e) => panic!("failed opening bundle {url:?}: {e}"),
     }
@@ -436,12 +450,12 @@ pub fn add_movie(url: &NSURL) {
     movie.setLink(&url);
     let name = match content {
         PlayingContent::Bundle(_, bundle) => NSString::from_str(&bundle.information().name),
-        PlayingContent::DirectFile(url) => {
+        PlayingContent::DirectFile(desc) => {
             // Try to figure out a reasonable name for the URL.
-            if let Some(file_stem) = Path::new(url.path()).file_stem() {
+            if let Some(file_stem) = Path::new(desc.url.path()).file_stem() {
                 NSString::from_str(&file_stem.to_string_lossy())
             } else {
-                NSString::from_str(&url.host_str().unwrap_or("unknown"))
+                NSString::from_str(&desc.url.host_str().unwrap_or("unknown"))
             }
         }
     };

@@ -2,25 +2,27 @@ use std::cell::{Cell, OnceCell};
 use std::fs::File;
 use std::path::Path;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, MutexGuard, Weak};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 use std::{fmt, io};
 
 use block2::RcBlock;
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::AnyObject;
-use objc2::{define_class, msg_send, DefinedClass as _, Message};
+use objc2::{define_class, msg_send, DefinedClass as _, MainThreadOnly, Message};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{
     MainThreadMarker, NSBundle, NSCoder, NSObjectProtocol, NSRunLoop, NSString,
 };
 use objc2_ui_kit::UIViewController;
+use ruffle_core::backend::navigator::OwnedFuture;
 use ruffle_core::backend::storage::StorageBackend;
 use ruffle_core::config::Letterbox;
 use ruffle_core::{LoadBehavior, Player, PlayerBuilder};
 use ruffle_frontend_utils::backends::audio::CpalAudioBackend;
-use ruffle_frontend_utils::backends::executor::{AsyncExecutor, PollRequester};
-use ruffle_frontend_utils::backends::navigator::{ExternalNavigatorBackend, NavigatorInterface};
+use ruffle_frontend_utils::backends::navigator::{
+    self, ExternalNavigatorBackend, NavigatorInterface,
+};
 use ruffle_frontend_utils::content::PlayingContent;
 use ruffle_frontend_utils::player_options::PlayerOptions;
 use ruffle_render::quality::StageQuality;
@@ -30,25 +32,49 @@ use crate::player_view::PlayerView;
 use crate::storage::{self, Movie, SecurityScopedResource};
 
 #[derive(Clone, Debug)]
-pub struct EventSender {
-    executor: Rc<OnceCell<Weak<AsyncExecutor<EventSender>>>>,
+pub struct FutureSpawner {
+    mtm: MainThreadMarker,
     main_run_loop: Retained<NSRunLoop>,
 }
 
-impl PollRequester for EventSender {
-    fn request_poll(&self) {
-        tracing::info!("request_poll");
-        if let Some(executor) = self.executor.get().expect("initialized").upgrade() {
-            // Schedule poll at a later point to avoid deadlock
-            unsafe {
-                self.main_run_loop.performBlock(&RcBlock::new(move || {
-                    tracing::info!("polling");
-                    executor.poll_all();
-                }))
-            };
-        } else {
-            tracing::error!("tried to poll, but executor was dropped");
-        }
+impl FutureSpawner {
+    fn run_later(&self, closure: impl FnOnce() + 'static) {
+        let cell = Cell::new(Some(closure));
+
+        let _ = self.mtm;
+        // SAFTY: We hold MainThreadMarker, so it's fine to send a non-send
+        // closures to be run later on the main thread.
+        unsafe {
+            self.main_run_loop.performBlock(&RcBlock::new(move || {
+                let closure = cell.take().expect("called twice");
+                closure();
+            }))
+        };
+    }
+}
+
+impl<E: std::error::Error + 'static> navigator::FutureSpawner<E> for FutureSpawner {
+    fn spawn(&self, future: OwnedFuture<(), E>) {
+        // Discard any errors.
+        let future = async {
+            if let Err(e) = future.await {
+                tracing::error!("Async error: {}", e);
+            }
+        };
+
+        let scheduler = move |task: async_task::Runnable| {
+            self.run_later(|| {
+                task.run();
+            });
+        };
+
+        // SAFETY: TODO
+        let (runnable, task) = unsafe { async_task::spawn_unchecked(future, scheduler) };
+
+        // The future should run in the background.
+        task.detach();
+        // Immediately schedule the future to be polled for the first time.
+        runnable.schedule();
     }
 }
 
@@ -63,7 +89,6 @@ pub struct Ivars {
     _scoped_resource: Cell<Option<SecurityScopedResource>>,
 
     player: OnceCell<Arc<Mutex<Player>>>,
-    executor: OnceCell<Arc<AsyncExecutor<EventSender>>>,
 }
 
 impl fmt::Debug for Ivars {
@@ -195,7 +220,6 @@ impl PlayerController {
             // run_swf.rs doesn't need security scoping.
             _scoped_resource: Cell::new(None),
             player: OnceCell::new(),
-            executor: OnceCell::new(),
         });
         let nil = None::<&AnyObject>;
         unsafe { msg_send![super(this), initWithNibName: nil, bundle: nil] }
@@ -244,12 +268,10 @@ impl PlayerController {
         let view = self.view();
         let renderer = view.create_renderer();
 
-        let sender = EventSender {
-            executor: Rc::new(OnceCell::new()),
+        let future_spawner = FutureSpawner {
+            mtm: self.mtm(),
             main_run_loop: NSRunLoop::mainRunLoop(),
         };
-        let (executor, future_spawner) = AsyncExecutor::new(sender.clone());
-        sender.executor.set(Arc::downgrade(&executor)).unwrap();
 
         let content = self.ivars().content.take().unwrap();
 
@@ -334,10 +356,6 @@ impl PlayerController {
         self.ivars()
             .player
             .set(player)
-            .unwrap_or_else(|_| panic!("viewDidLoad once"));
-        self.ivars()
-            .executor
-            .set(executor)
             .unwrap_or_else(|_| panic!("viewDidLoad once"));
     }
 

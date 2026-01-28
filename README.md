@@ -15,8 +15,6 @@ I'm developing [`objc2`](https://github.com/madsmtm/objc2) though, and I want to
 
 Run the core player on Mac Catalyst with:
 ```
-# Mac Catalyst uses the macOS SDK
-export COREAUDIO_SDK_PATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
 cargo bundle --target=aarch64-apple-ios-macabi --bin run_swf && ./target/aarch64-apple-ios-macabi/debug/bundle/ios/Ruffle.app/run_swf
 ```
 

@@ -6,7 +6,7 @@ use objc2::{define_class, msg_send, ClassType, DefinedClass as _, MainThreadOnly
 use objc2_foundation::{MainThreadMarker, NSObject, NSObjectProtocol};
 use objc2_ui_kit::{UIApplication, UIApplicationDelegate, UIScreen, UIWindow};
 
-use ruffle_frontend_utils::content::PlayingContent;
+use ruffle_frontend_utils::content::{ContentDescriptor, PlayingContent};
 use ruffle_frontend_utils::player_options::PlayerOptions;
 use ruffle_ios::{init_logging, launch, PlayerController};
 use url::Url;
@@ -59,7 +59,11 @@ impl AppDelegate {
         let window = UIWindow::initWithFrame(mtm.alloc(), frame);
 
         let movie_path = std::path::absolute(movie_path).unwrap();
-        let content = PlayingContent::DirectFile(Url::from_file_path(movie_path).unwrap());
+        let url = Url::from_file_path(movie_path).unwrap();
+        let content = PlayingContent::DirectFile(ContentDescriptor {
+            url,
+            root_content_path: None, // TODO
+        });
 
         let view_controller = PlayerController::new(mtm, content, PlayerOptions::default());
         window.setRootViewController(Some(&view_controller));

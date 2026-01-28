@@ -36,11 +36,13 @@ ruffle_video = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "mast
 ruffle_video_software = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master" }
 ruffle_frontend_utils = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master", features = [
     "cpal",
+    "fs",
+    "navigator",
 ] }
 flv-rs = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master" }
 
-wgpu = "25.0.2"
-cpal = "0.15.3"
+wgpu = "27.0.1"
+cpal = "0.16.0"
 url = "2.5.2"
 tokio = { version = "1.40.0", features = ["rt-multi-thread", "macros"] }
 libc = "0.2.158"
@@ -48,6 +50,8 @@ libc = "0.2.158"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 tracing-oslog = "0.3.0"
+futures-util = "0.3.31"
+async-task = "4.7.1"
 
 [package.metadata.bundle.bin.run_swf]
 name = "Ruffle"
