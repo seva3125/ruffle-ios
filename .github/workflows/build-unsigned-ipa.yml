@@ -48,7 +48,7 @@ jobs:
 
       - name: Fetch locked dependencies
         shell: bash
-        run: cargo fetch --locked --target aarch64-apple-ios
+        run: cargo fetch --locked
 
       - name: Build unsigned application
         shell: bash
