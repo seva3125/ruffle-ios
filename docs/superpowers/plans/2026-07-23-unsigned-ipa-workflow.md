@@ -77,6 +77,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Set up Java
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
@@ -130,14 +132,22 @@ jobs:
           set -euo pipefail
           app_path="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/ruffle-ios.app"
           package_root="$RUNNER_TEMP/ipa-package"
-          ipa_path="$GITHUB_WORKSPACE/Ruffle-unsigned.ipa"
+          artifact_dir="$RUNNER_TEMP/unsigned-ipa-artifact"
+          ipa_path="$artifact_dir/Ruffle-unsigned.ipa"
 
           test -d "$app_path"
           test -f "$app_path/Info.plist"
           test -f "$app_path/ruffle-ios"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :DTPlatformName' "$app_path/Info.plist")" = "iphoneos"
+          lipo "$app_path/ruffle-ios" -verify_arch arm64
+          if codesign -d "$app_path" >/dev/null 2>&1; then
+            echo "Expected an unsigned application bundle" >&2
+            exit 1
+          fi
 
-          mkdir -p "$package_root/Payload"
+          mkdir -p "$package_root/Payload" "$artifact_dir"
+          test ! -e "$ipa_path"
           ditto "$app_path" "$package_root/Payload/ruffle-ios.app"
           (
             cd "$package_root"
@@ -145,17 +155,22 @@ jobs:
           )
 
           /usr/bin/unzip -t "$ipa_path"
+          /usr/bin/unzip -Z1 "$ipa_path" | awk -F/ '$1 != "Payload" { exit 1 }'
+          test "$(/usr/bin/unzip -Z1 "$ipa_path" | grep -Ec '^Payload/[^/]+\.app/$')" -eq 1
           /usr/bin/unzip -l "$ipa_path" | grep -F 'Payload/ruffle-ios.app/Info.plist'
           test ! -d "$package_root/Payload/ruffle-ios.app/_CodeSignature"
-          shasum -a 256 "$ipa_path" > "$ipa_path.sha256"
+          (
+            cd "$artifact_dir"
+            shasum -a 256 Ruffle-unsigned.ipa > Ruffle-unsigned.ipa.sha256
+          )
 
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Ruffle-unsigned-ipa
           path: |
-            Ruffle-unsigned.ipa
-            Ruffle-unsigned.ipa.sha256
+            ${{ runner.temp }}/unsigned-ipa-artifact/Ruffle-unsigned.ipa
+            ${{ runner.temp }}/unsigned-ipa-artifact/Ruffle-unsigned.ipa.sha256
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
