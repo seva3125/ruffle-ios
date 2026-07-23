@@ -209,22 +209,33 @@ git push -u origin ci/unsigned-ipa
 
 Expected: branch `ci/unsigned-ipa` exists on `seva3125/ruffle-ios`.
 
-- [ ] **Step 2: Dispatch the workflow on the implementation branch**
+- [ ] **Step 2: Register the workflow on the fork's default branch**
 
 Run:
 
 ```bash
-gh workflow run build-unsigned-ipa.yml --repo seva3125/ruffle-ios --ref ci/unsigned-ipa
+git push origin ci/unsigned-ipa:main
+```
+
+Expected: the fork's default branch is fast-forwarded to the reviewed workflow
+commit, allowing GitHub to register the manual workflow.
+
+- [ ] **Step 3: Dispatch the workflow**
+
+Run:
+
+```bash
+gh workflow run build-unsigned-ipa.yml --repo seva3125/ruffle-ios --ref main
 ```
 
 Expected: GitHub accepts the dispatch.
 
-- [ ] **Step 3: Watch the run to completion**
+- [ ] **Step 4: Watch the run to completion**
 
 Run:
 
 ```bash
-run_id="$(gh run list --repo seva3125/ruffle-ios --workflow build-unsigned-ipa.yml --branch ci/unsigned-ipa --limit 1 --json databaseId --jq '.[0].databaseId')"
+run_id="$(gh run list --repo seva3125/ruffle-ios --workflow build-unsigned-ipa.yml --branch main --limit 1 --json databaseId --jq '.[0].databaseId')"
 gh run watch "$run_id" --repo seva3125/ruffle-ios --exit-status
 ```
 
