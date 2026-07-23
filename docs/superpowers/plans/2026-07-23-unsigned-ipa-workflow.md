@@ -274,7 +274,9 @@ Run:
 ```bash
 (
   cd ../artifacts
-  shasum -a 256 -c Ruffle-unsigned.ipa.sha256
+  expected_hash="$(awk '{print $1}' Ruffle-unsigned.ipa.sha256)"
+  actual_hash="$(shasum -a 256 Ruffle-unsigned.ipa | awk '{print $1}')"
+  test "$expected_hash" = "$actual_hash"
   unzip -t Ruffle-unsigned.ipa
   unzip -l Ruffle-unsigned.ipa | grep -F 'Payload/ruffle-ios.app/Info.plist'
   if unzip -l Ruffle-unsigned.ipa | grep -Fq 'Payload/ruffle-ios.app/_CodeSignature/'; then
