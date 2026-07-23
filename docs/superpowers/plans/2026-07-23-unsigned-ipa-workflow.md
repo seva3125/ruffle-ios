@@ -21,7 +21,7 @@
 **Files:**
 - No files created or modified.
 
-- [ ] **Step 1: Confirm the authenticated GitHub account and clean tracked state**
+- [x] **Step 1: Confirm the authenticated GitHub account and clean tracked state**
 
 Run:
 
@@ -32,7 +32,7 @@ git status --short --branch
 
 Expected: GitHub account `seva3125` is active; only the audit-generated `.gstack/` directory is untracked.
 
-- [ ] **Step 2: Create the fork and add it as `origin`**
+- [x] **Step 2: Create the fork and add it as `origin`**
 
 Run:
 
@@ -48,7 +48,7 @@ Expected: `origin` points to `seva3125/ruffle-ios` and `upstream` points to `mad
 **Files:**
 - Create: `.github/workflows/build-unsigned-ipa.yml`
 
-- [ ] **Step 1: Create the workflow**
+- [x] **Step 1: Create the workflow**
 
 Create `.github/workflows/build-unsigned-ipa.yml` with:
 
@@ -176,7 +176,7 @@ jobs:
           compression-level: 0
 ```
 
-- [ ] **Step 2: Install the local workflow linter**
+- [x] **Step 2: Install the local workflow linter**
 
 Run:
 
@@ -186,7 +186,7 @@ brew install actionlint
 
 Expected: `actionlint` is installed or already current.
 
-- [ ] **Step 3: Validate the workflow before committing**
+- [x] **Step 3: Validate the workflow before committing**
 
 Run:
 
@@ -198,7 +198,7 @@ git diff -- .github/workflows/build-unsigned-ipa.yml
 
 Expected: `actionlint` and `git diff --check` exit successfully, and the diff contains only the intended workflow.
 
-- [ ] **Step 4: Commit the workflow**
+- [x] **Step 4: Commit the workflow**
 
 Run:
 
@@ -214,7 +214,7 @@ Expected: one commit containing the workflow.
 **Files:**
 - No additional files.
 
-- [ ] **Step 1: Push the implementation branch**
+- [x] **Step 1: Push the implementation branch**
 
 Run:
 
@@ -224,7 +224,7 @@ git push -u origin ci/unsigned-ipa
 
 Expected: branch `ci/unsigned-ipa` exists on `seva3125/ruffle-ios`.
 
-- [ ] **Step 2: Register the workflow on the fork's default branch**
+- [x] **Step 2: Register the workflow on the fork's default branch**
 
 Run:
 
@@ -235,7 +235,7 @@ git push origin ci/unsigned-ipa:main
 Expected: the fork's default branch is fast-forwarded to the reviewed workflow
 commit, allowing GitHub to register the manual workflow.
 
-- [ ] **Step 3: Dispatch the workflow**
+- [x] **Step 3: Dispatch the workflow**
 
 Run:
 
@@ -245,7 +245,7 @@ gh workflow run build-unsigned-ipa.yml --repo seva3125/ruffle-ios --ref main
 
 Expected: GitHub accepts the dispatch.
 
-- [ ] **Step 4: Watch the run to completion**
+- [x] **Step 4: Watch the run to completion**
 
 Run:
 
@@ -268,7 +268,7 @@ and correct only the demonstrated failure before rerunning the static checks and
 - Download to: `work/artifacts/Ruffle-unsigned.ipa`
 - Download to: `work/artifacts/Ruffle-unsigned.ipa.sha256`
 
-- [ ] **Step 1: Download the workflow artifact**
+- [x] **Step 1: Download the workflow artifact**
 
 Run:
 
@@ -282,7 +282,7 @@ gh run download "$run_id" \
 
 Expected: both artifact files exist under `../artifacts`.
 
-- [ ] **Step 2: Verify the checksum, archive structure, and absence of a signature**
+- [x] **Step 2: Verify the checksum, archive structure, and absence of a signature**
 
 Run:
 
@@ -308,7 +308,7 @@ Expected: checksum reports `OK`, ZIP validation succeeds, `Info.plist` exists, a
 **Files:**
 - No source files modified.
 
-- [ ] **Step 1: Audit the completed repository change**
+- [x] **Step 1: Audit the completed repository change**
 
 Run:
 
@@ -321,7 +321,7 @@ git status --short --branch
 
 Expected: the diff contains only the design, plan, and workflow; no lint errors or whitespace errors appear; `.gstack/` remains the only unrelated untracked path.
 
-- [ ] **Step 2: List Taildrop targets**
+- [x] **Step 2: List Taildrop targets**
 
 Run:
 
@@ -331,7 +331,7 @@ tailscale file cp --targets
 
 Expected: `iphone-13-pro` appears as target `100.65.190.63`.
 
-- [ ] **Step 3: Transfer the verified IPA**
+- [x] **Step 3: Transfer the verified IPA**
 
 Run:
 
@@ -341,7 +341,7 @@ tailscale file cp ../artifacts/Ruffle-unsigned.ipa 100.65.190.63:
 
 Expected: Taildrop reports a successful transfer. The user can retrieve the file from the Files app and open it with SideStore.
 
-- [ ] **Step 4: Report the exact commit, workflow run, artifact checksum, and transfer result**
+- [x] **Step 4: Report the exact commit, workflow run, artifact checksum, and transfer result**
 
 Run:
 
